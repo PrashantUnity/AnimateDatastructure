@@ -16,6 +16,20 @@
             "Weekly Contest 387"
           ],
           "ProblemNumber": 3070
+        },
+        {
+          "Title": "Number of Islands",
+          "Path": "Matrix/number-of-islands.html",
+          "ProblemUri": "https://leetcode.com/problems/number-of-islands/",
+          "Difficulty": "Medium",
+          "Topics": [
+            "Array",
+            "Depth-First Search",
+            "Breadth-First Search",
+            "Union-Find",
+            "Matrix"
+          ],
+          "ProblemNumber": 200
         }
       ]
     }
