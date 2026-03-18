@@ -48,7 +48,8 @@ try
                     Path: relativePath,
                     ProblemUri: metadata?.ProblemUri,
                     Difficulty: metadata?.Difficulty,
-                    Topics: metadata?.Topics
+                    Topics: metadata?.Topics,
+                    ProblemNumber: metadata?.ProblemNumber
                 );
             })
             .ToList();
@@ -56,7 +57,7 @@ try
         manifestCategories.Add(new ManifestCategory(categoryName, problems));
     }
 
-    var manifest = new ManifestRoot(DateTime.UtcNow, manifestCategories);
+    var manifest = new ManifestRoot(manifestCategories);
     var jsonOptions = new JsonSerializerOptions
     {
         WriteIndented = true
@@ -159,11 +160,18 @@ static string AppendDirectorySeparatorChar(string path)
     return path;
 }
 
-file sealed record ManifestRoot(DateTime GeneratedAt, IReadOnlyList<ManifestCategory> Categories);
+file sealed record ManifestRoot(IReadOnlyList<ManifestCategory> Categories);
 
 file sealed record ManifestCategory(string Name, IReadOnlyList<ManifestProblem> Problems);
 
-file sealed record ManifestProblem(string Title, string Path, string? ProblemUri, string? Difficulty, IReadOnlyList<string>? Topics);
+file sealed record ManifestProblem(
+    string Title,
+    string Path,
+    string? ProblemUri,
+    string? Difficulty,
+    IReadOnlyList<string>? Topics,
+    int? ProblemNumber
+);
 
 file sealed record ProblemMetadata(
     string? ProblemUri,
@@ -171,5 +179,6 @@ file sealed record ProblemMetadata(
     string? ProblemDescription,
     string? ProblemSolution,
     string? Difficulty,
-    IReadOnlyList<string>? Topics
+    IReadOnlyList<string>? Topics,
+    int? ProblemNumber
 );
