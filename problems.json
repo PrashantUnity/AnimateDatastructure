@@ -1,5 +1,4 @@
 {
-  "GeneratedAt": "2026-03-18T03:11:09.0812284Z",
   "Categories": [
     {
       "Name": "Matrix",
@@ -15,7 +14,8 @@
             "Matrix",
             "Prefix Sum",
             "Weekly Contest 387"
-          ]
+          ],
+          "ProblemNumber": 3070
         }
       ]
     }
