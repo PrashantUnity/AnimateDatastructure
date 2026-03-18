@@ -162,6 +162,45 @@
             direction: 'asc', // 'asc' | 'desc'
         };
 
+        const STORAGE_KEY = 'dsa-explorer-progress';
+
+        function getProgressFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return {};
+                const parsed = JSON.parse(raw);
+                return typeof parsed === 'object' && parsed !== null ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+
+        function saveProgressToStorage() {
+            const progress = {};
+            dsaProblems.forEach((p) => {
+                if (p.solved || p.inProgress) {
+                    progress[p.id] = { solved: !!p.solved, inProgress: !!p.inProgress };
+                }
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+        }
+
+        function cycleProblemStatus(problemId) {
+            const problem = dsaProblems.find((p) => p.id === problemId);
+            if (!problem) return;
+            if (problem.solved) {
+                problem.solved = false;
+                problem.inProgress = false;
+            } else if (problem.inProgress) {
+                problem.solved = true;
+                problem.inProgress = false;
+            } else {
+                problem.inProgress = true;
+            }
+            saveProgressToStorage();
+            filterData();
+        }
+
         // Helper function for difficulty badge styling
         function getDifficultyClasses(difficulty) {
             switch(difficulty) {
@@ -202,10 +241,18 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-850/70 group';
 
-                // Status Icon logic
-                const statusIcon = problem.solved 
-                    ? '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>'
-                    : '<i data-lucide="circle" class="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors"></i>';
+                // Status: solved > in progress > not started
+                let statusIcon, statusTitle;
+                if (problem.solved) {
+                    statusIcon = '<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>';
+                    statusTitle = 'Finished (click to clear)';
+                } else if (problem.inProgress) {
+                    statusIcon = '<i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>';
+                    statusTitle = 'In progress (click to set finished)';
+                } else {
+                    statusIcon = '<i data-lucide="circle" class="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors"></i>';
+                    statusTitle = 'Not started (click to set in progress)';
+                }
 
                 const diffClasses = getDifficultyClasses(problem.difficulty);
 
@@ -213,9 +260,11 @@
                     ? `<td class="px-4 py-3 align-middle text-xs text-gray-400 tabular-nums">${problem.number}</td>`
                     : `<td class="px-4 py-3 align-middle text-xs text-gray-600">—</td>`;
 
+                const problemIdEscaped = (problem.id || '').replace(/"/g, '&quot;');
+
                 tr.innerHTML = `
                     ${numberCell}
-                    <td class="px-4 py-3 align-middle">
+                    <td class="px-4 py-3 align-middle cursor-pointer select-none" data-status-cell data-problem-id="${problemIdEscaped}" title="${statusTitle}">
                         <div class="flex items-center justify-center w-6">
                             ${statusIcon}
                         </div>
@@ -285,15 +334,26 @@
                         const number = explicitNumber ?? autoNumber++;
 
                         return {
+                            id: p.Path || `unknown-${autoNumber}`,
                             number,
                             name: p.Title || 'Untitled Problem',
                             topic: topicLabel,
                             difficulty,
                             leetcodeUrl: p.ProblemUri || '#',
                             animationUrl: p.Path || '#',
-                            solved: false
+                            solved: false,
+                            inProgress: false
                         };
                     });
+                });
+
+                const saved = getProgressFromStorage();
+                dsaProblems.forEach((problem) => {
+                    const entry = saved[problem.id];
+                    if (entry) {
+                        if (typeof entry.solved === 'boolean') problem.solved = entry.solved;
+                        if (typeof entry.inProgress === 'boolean') problem.inProgress = entry.inProgress;
+                    }
                 });
 
                 filterData();
@@ -318,9 +378,9 @@
                         valB = typeof b.number === 'number' ? b.number : Number.MAX_SAFE_INTEGER;
                         break;
                     case 'status':
-                        // Unsolved first in ascending order
-                        valA = a.solved ? 1 : 0;
-                        valB = b.solved ? 1 : 0;
+                        // Not started (0), in progress (1), solved (2); ascending = not started first
+                        valA = a.solved ? 2 : (a.inProgress ? 1 : 0);
+                        valB = b.solved ? 2 : (b.inProgress ? 1 : 0);
                         break;
                     case 'topic':
                         valA = (a.topic || '').toLowerCase();
@@ -418,6 +478,13 @@
         // Event Listeners
         searchInput.addEventListener('input', filterData);
         difficultyFilter.addEventListener('change', filterData);
+
+        problemListEl.addEventListener('click', (e) => {
+            const cell = e.target.closest('[data-status-cell]');
+            if (!cell) return;
+            const id = cell.getAttribute('data-problem-id');
+            if (id) cycleProblemStatus(id);
+        });
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
