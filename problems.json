@@ -1,6 +1,25 @@
 {
   "Categories": [
     {
+      "Name": "Array",
+      "Problems": [
+        {
+          "Title": "Reveal Cards In Increasing Order",
+          "Path": "Array/reveal-cards-in-increasing-order.html",
+          "ProblemUri": "https://leetcode.com/problems/reveal-cards-in-increasing-order/",
+          "Difficulty": "Medium",
+          "Topics": [
+            "Array",
+            "Queue",
+            "Sorting",
+            "Simulation",
+            "Weekly Contest 113"
+          ],
+          "ProblemNumber": 950
+        }
+      ]
+    },
+    {
       "Name": "Matrix",
       "Problems": [
         {
