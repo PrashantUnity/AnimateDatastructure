@@ -23,6 +23,19 @@
       "Name": "Matrix",
       "Problems": [
         {
+          "Title": "Count Submatrices With Equal Frequency of X and Y",
+          "Path": "Matrix/count-submatrices-with-equal-frequency-of-x-and-y.html",
+          "ProblemUri": "https://leetcode.com/problems/count-submatrices-with-equal-frequency-of-x-and-y/",
+          "Difficulty": "Medium",
+          "Topics": [
+            "Array",
+            "Matrix",
+            "Prefix Sum",
+            "Weekly Contest 405"
+          ],
+          "ProblemNumber": 3212
+        },
+        {
           "Title": "Count Submatrices With Top Left Element And Sum Less Than K",
           "Path": "Matrix/count-submatrices-with-top-left-element-and-sum-less-than-k.html",
           "ProblemUri": "https://leetcode.com/problems/count-submatrices-with-top-left-element-and-sum-less-than-k/",
@@ -35,6 +48,19 @@
             "Weekly Contest 387"
           ],
           "ProblemNumber": 3070
+        },
+        {
+          "Title": "Flip Square Submatrix Vertically",
+          "Path": "Matrix/flip-square-submatrix-vertically.html",
+          "ProblemUri": "https://leetcode.com/problems/flip-square-submatrix-vertically",
+          "Difficulty": "Easy",
+          "Topics": [
+            "Array",
+            "Two Pointers",
+            "Matrix",
+            "Weekly Contest 462"
+          ],
+          "ProblemNumber": 3643
         },
         {
           "Title": "Number of Islands",
