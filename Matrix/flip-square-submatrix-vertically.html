@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Visualizer: Reverse Submatrix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Custom scrollbars */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1e293b; 
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        .light-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .light-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white p-4 sm:px-8 shadow-md">
+        <div class="w-full flex items-center justify-between">
+            <h1 class="text-xl sm:text-2xl font-bold">Reverse Submatrix Visualizer</h1>
+            <div class="text-xs sm:text-sm bg-indigo-700 px-3 py-1 rounded-full border border-indigo-500 shadow-inner">Interactive Debugger</div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContainer" class="flex-grow p-4 sm:p-6 w-full flex flex-col lg:flex-row gap-4 relative">
+        
+        <!-- Left Column: Controls & Grid -->
+        <div id="leftPane" class="w-full lg:w-[60%] min-w-[300px] flex flex-col gap-4">
+            
+            <!-- Setup Panel -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm uppercase tracking-wide text-slate-500 font-bold">1. Configure Inputs</h2>
+                </div>
+                
+                <div class="flex flex-col gap-3">
+                    <div class="flex flex-col sm:flex-row gap-3 w-full">
+                        <div class="flex-grow">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Grid (JSON 2D Array)</label>
+                            <input type="text" id="gridInput" value='[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]]' 
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm text-slate-700 shadow-inner">
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <div class="w-1/3 sm:w-16">
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Y (Row)</label>
+                                <input type="number" id="inputY" value="0" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm shadow-inner">
+                            </div>
+                            <div class="w-1/3 sm:w-16">
+                                <label class="block text-xs font-bold text-slate-500 mb-1">X (Col)</label>
+                                <input type="number" id="inputX" value="0" min="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm shadow-inner">
+                            </div>
+                            <div class="w-1/3 sm:w-16">
+                                <label class="block text-xs font-bold text-slate-500 mb-1">K (Size)</label>
+                                <input type="number" id="inputK" value="4" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm shadow-inner">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <select id="presetSelect" onchange="loadPreset()" class="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-slate-50 font-medium text-slate-700">
+                            <option value="default">Default 4x4 (Reverse All)</option>
+                            <option value="inner">Inner 3x3 Block</option>
+                            <option value="tall">5x3 Grid</option>
+                        </select>
+
+                        <button id="loadBtn" onclick="loadSimulation()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold transition-colors shadow-sm whitespace-nowrap">
+                            LOAD & RUN
+                        </button>
+                    </div>
+                </div>
+
+                <div id="errorMsg" class="text-rose-600 bg-rose-50 border border-rose-200 p-3 rounded-lg text-sm mt-3 hidden font-mono"></div>
+            </div>
+
+            <!-- Visualization Panel -->
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 flex-grow flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm uppercase tracking-wide text-slate-500 font-bold">2. Matrix State</h2>
+                    <div class="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+                        <div id="phaseBadge" class="px-3 py-1.5 text-xs font-bold uppercase rounded-md shadow-sm bg-slate-200 text-slate-600 order-2 sm:order-1">IDLE</div>
+                        
+                        <div class="flex gap-2 order-1 sm:order-2">
+                            <div class="flex flex-col items-center justify-center bg-blue-50 border border-blue-200 rounded px-2 py-1 min-w-[72px] sm:min-w-[80px] shadow-sm transition-colors">
+                                <span class="text-[9px] font-black text-blue-500 tracking-wider">SOURCE</span>
+                                <span id="sourceDisplay" class="font-mono font-bold text-blue-700 text-lg leading-none py-0.5">--</span>
+                                <span id="sourceCoord" class="text-[9px] font-mono font-semibold text-blue-400 h-3 leading-none"></span>
+                            </div>
+                            <div class="flex flex-col items-center justify-center bg-amber-50 border border-amber-200 rounded px-2 py-1 min-w-[72px] sm:min-w-[80px] shadow-sm transition-colors">
+                                <span class="text-[9px] font-black text-amber-500 tracking-wider">TEMP</span>
+                                <span id="tempDisplay" class="font-mono font-bold text-amber-700 text-lg leading-none py-0.5">--</span>
+                                <span id="tempCoord" class="text-[9px] font-mono font-semibold text-amber-400 h-3 leading-none"></span>
+                            </div>
+                            <div class="flex flex-col items-center justify-center bg-emerald-50 border border-emerald-200 rounded px-2 py-1 min-w-[72px] sm:min-w-[80px] shadow-sm transition-colors">
+                                <span class="text-[9px] font-black text-emerald-500 tracking-wider">TARGET</span>
+                                <span id="targetDisplay" class="font-mono font-bold text-emerald-700 text-lg leading-none py-0.5">--</span>
+                                <span id="targetCoord" class="text-[9px] font-mono font-semibold text-emerald-400 h-3 leading-none"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid Rendering Area -->
+                <div class="flex-grow flex items-center justify-center min-h-[300px] bg-slate-50/50 rounded-xl border border-slate-200 p-4 overflow-auto light-scroll custom-scroll">
+                    <div id="gridContainer" class="grid gap-2 sm:gap-3 transition-all duration-300">
+                        <!-- Cells injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="flex gap-x-4 gap-y-2 justify-center mt-6 text-xs sm:text-sm flex-wrap font-medium text-slate-600 items-center">
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-white border-2 border-slate-200 rounded"></div> Unaffected</div>
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-indigo-50 border-2 border-indigo-200 rounded"></div> Target Submatrix</div>
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-amber-100 border-2 border-amber-400 rounded"></div> Reading to Temp</div>
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-blue-100 border-2 border-blue-400 border-dashed rounded"></div> Source (Giving)</div>
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-emerald-100 border-2 border-emerald-500 rounded"></div> Target (Assigning)</div>
+                    <div class="flex items-center gap-1.5"><div class="w-4 h-4 bg-purple-100 border-2 border-purple-400 rounded"></div> Changed (At End)</div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
+                        <button onclick="prevStep()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition text-slate-700" title="Previous Step">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <button id="playBtn" onclick="togglePlay()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition font-bold w-32 text-center shadow-sm tracking-wider">
+                            PLAY
+                        </button>
+                        <button onclick="nextStep()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition text-slate-700" title="Next Step">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="flex-grow flex items-center gap-4 px-2 sm:px-4 w-full">
+                        <span class="text-xs font-bold text-slate-400 whitespace-nowrap w-12 text-right" id="stepCounter">0/0</span>
+                        <input type="range" id="stepSlider" min="0" max="0" value="0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" oninput="goToStep(this.value)">
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <input type="range" id="speedSlider" min="50" max="1500" value="600" dir="rtl" class="w-20 sm:w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500" title="Adjust Playback Speed">
+                    </div>
+                </div>
+                <div class="mt-4 p-3.5 bg-indigo-50/50 text-indigo-900 rounded-lg text-sm border border-indigo-100 font-medium">
+                    <span class="font-bold text-indigo-700">Action:</span> <span id="stepMessage">Click 'LOAD & RUN' and then 'PLAY' to start visualization.</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Draggable Resizer (Desktop Only) -->
+        <div id="dragResizer" class="hidden lg:flex w-4 cursor-col-resize items-center justify-center -mx-2 z-20 group select-none">
+            <div class="h-24 w-1.5 bg-slate-200 group-hover:bg-indigo-500 rounded-full transition-colors"></div>
+        </div>
+
+        <!-- Right Column: Code Viewer / Editor -->
+        <div id="rightPane" class="w-full lg:flex-1 min-w-[300px] bg-slate-900 rounded-xl shadow-lg border border-slate-800 flex flex-col overflow-hidden relative">
+            <div class="bg-slate-800 px-4 py-3 border-b border-slate-700 flex justify-between items-center z-10">
+                <h2 class="text-slate-300 font-semibold text-xs tracking-wider uppercase font-mono">ReverseSubmatrix (JS)</h2>
+                <div class="flex items-center gap-3">
+                    <button id="editCodeBtn" onclick="toggleEditMode()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-bold rounded transition-colors shadow-sm border border-slate-600">
+                        EDIT CODE
+                    </button>
+                    <div class="flex gap-1.5 hidden sm:flex">
+                        <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="relative flex-grow h-[500px] lg:h-auto">
+                <div class="absolute inset-0 overflow-y-auto custom-scroll p-4 pb-12" id="codeContainer">
+                    <pre class="font-mono text-[13px] sm:text-sm leading-relaxed text-slate-300 w-full" id="codeBlock"></pre>
+                </div>
+                <textarea id="codeEditor" class="hidden absolute inset-0 w-full h-full bg-slate-900 text-emerald-400 font-mono text-[13px] sm:text-sm leading-relaxed focus:outline-none resize-none border-none p-4 custom-scroll pb-12" spellcheck="false" style="tab-size: 4;"></textarea>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Editable Code State ---
+        let currentCodeText = `const y = params.y;
+const x = params.x;
+const k = params.k;
+
+for (let i = x; i < x + k; i++) 
+{
+    let j = y;
+    for (let m = 0; m < Math.floor((k + 1) / 2); m++) 
+    {
+        // Swap using a temporary variable
+        let temp = grid[j+m][i];
+        grid[j+m][i] = grid[j+k-m-1][i];
+        grid[j+k-m-1][i] = temp;
+    }
+}
+return grid;`;
+
+        let isEditMode = false;
+
+        document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        });
+
+        function toggleEditMode() {
+            const btn = document.getElementById('editCodeBtn');
+            const pre = document.getElementById('codeContainer');
+            const editor = document.getElementById('codeEditor');
+            const loadBtn = document.getElementById('loadBtn');
+
+            if (!isEditMode) {
+                isEditMode = true;
+                btn.innerText = "SAVE & RUN";
+                btn.classList.replace('bg-slate-700', 'bg-emerald-600');
+                btn.classList.replace('border-slate-600', 'border-emerald-500');
+                btn.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
+                
+                editor.value = currentCodeText;
+                pre.classList.add('hidden');
+                editor.classList.remove('hidden');
+                
+                loadBtn.disabled = true;
+                loadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                if(isPlaying) togglePlay();
+
+            } else {
+                isEditMode = false;
+                btn.innerText = "EDIT CODE";
+                btn.classList.replace('bg-emerald-600', 'bg-slate-700');
+                btn.classList.replace('border-emerald-500', 'border-slate-600');
+                btn.classList.replace('hover:bg-emerald-500', 'hover:bg-slate-600');
+                
+                currentCodeText = editor.value;
+                editor.classList.add('hidden');
+                pre.classList.remove('hidden');
+                
+                renderCodeView(currentCodeText);
+                
+                loadBtn.disabled = false;
+                loadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                loadSimulation();
+            }
+        }
+
+        function renderCodeView(code) {
+            const codeLines = code.split('\n');
+            const codeBlock = document.getElementById('codeBlock');
+            codeBlock.innerHTML = codeLines.map((line, index) => {
+                const lineNum = index + 1;
+                return `<div id="line-${lineNum}" class="px-2 py-0.5 border-l-4 border-transparent flex items-start relative transition-colors duration-200">
+                    <span id="caret-${lineNum}" class="absolute left-0 top-1 -ml-[3px] text-yellow-400 opacity-0 transition-opacity duration-200 text-[10px]">▶</span>
+                    <span class="text-slate-600 w-8 inline-block select-none ml-2 text-right pr-3 shrink-0">${lineNum}</span>
+                    <span class="whitespace-pre-wrap break-all">${line.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // --- Core Application State ---
+        let steps = [];
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let playInterval;
+        let activeParams = { y: 0, x: 0, k: 0 };
+        let originalGrid = [];
+
+        const copyGrid = (g) => g.map(row => [...row]);
+
+        function runCustomCode(code, initialGrid, params) {
+            let generatedSteps = [];
+            let currentGrid = copyGrid(initialGrid);
+            let lastRead = null;
+            let tempTracker = null;
+            
+            function getLineNumber() {
+                try { throw new Error(); } catch (e) {
+                    if (!e.stack) return -1;
+                    const lines = e.stack.split('\n');
+                    for (let line of lines) {
+                        if (line.includes('eval') || line.includes('<anonymous>') || line.includes('Function')) {
+                            const matches = [...line.matchAll(/:(\d+):\d+/g)];
+                            if (matches.length > 0) {
+                                const lastMatch = matches[matches.length - 1];
+                                let l = parseInt(lastMatch[1]);
+                                return l > 2 ? l - 2 : l; 
+                            }
+                        }
+                    }
+                    return -1;
+                }
+            }
+
+            function recordSnapshot(msg, active = [], phase = 'IDLE') {
+                generatedSteps.push({
+                    grid: copyGrid(currentGrid),
+                    message: msg,
+                    phase: phase,
+                    tempVal: tempTracker ? {...tempTracker} : null,
+                    activeCells: [...active],
+                    line: getLineNumber()
+                });
+            }
+
+            const proxiedGrid = currentGrid.map((row, r) => new Proxy(row, {
+                get(target, prop) {
+                    if (typeof prop === 'string' && !isNaN(prop)) {
+                        const c = parseInt(prop);
+                        
+                        // If we get a second read before a write, the first one was stored in a variable!
+                        if (lastRead !== null) {
+                            tempTracker = {...lastRead};
+                            recordSnapshot(
+                                `Stored grid[${lastRead.r}][${lastRead.c}] (${lastRead.val}) into temp variable`,
+                                [{r: lastRead.r, c: lastRead.c, role: 'temp_save'}],
+                                'TEMP'
+                            );
+                        }
+                        
+                        lastRead = {r, c, val: target[prop]};
+                    }
+                    return target[prop];
+                },
+                set(target, prop, value) {
+                    if (typeof prop === 'string' && !isNaN(prop)) {
+                        const c = parseInt(prop);
+                        target[prop] = value;
+                        
+                        let activeCells = [{r, c, role: 'write'}];
+                        
+                        if (lastRead !== null) {
+                            // Assigning from another cell directly
+                            if (lastRead.r !== r || lastRead.c !== c) {
+                                activeCells.push({r: lastRead.r, c: lastRead.c, role: 'read'});
+                            }
+                            recordSnapshot(
+                                `Assigned value ${value} from grid[${lastRead.r}][${lastRead.c}] to grid[${r}][${c}]`, 
+                                activeCells, 
+                                'SWAP_1'
+                            );
+                        } else {
+                            // Assigning from temp (because lastRead was flushed)
+                            recordSnapshot(
+                                `Assigned value ${value} from temp into grid[${r}][${c}]`, 
+                                activeCells, 
+                                'SWAP_2'
+                            );
+                            tempTracker = null; // Temp is consumed
+                        }
+                        
+                        lastRead = null; // Clear read state after assignment
+                    }
+                    return true;
+                }
+            }));
+
+            try {
+                // Initial State
+                generatedSteps.push({
+                    grid: copyGrid(currentGrid),
+                    message: "Ready to execute code.",
+                    phase: 'START',
+                    tempVal: null,
+                    activeCells: [],
+                    line: 0
+                });
+
+                const dynamicFunction = new Function('grid', 'params', code);
+                dynamicFunction(proxiedGrid, params);
+
+                generatedSteps.push({
+                    grid: copyGrid(currentGrid),
+                    message: "Submatrix reversal complete.",
+                    phase: 'DONE',
+                    tempVal: null,
+                    activeCells: [],
+                    line: code.split('\n').length
+                });
+
+                return { steps: generatedSteps, error: null };
+            } catch (err) {
+                console.error(err);
+                return { steps: generatedSteps, error: err.message };
+            }
+        }
+
+        function loadPreset() {
+            const presetVal = document.getElementById('presetSelect').value;
+            if (presetVal === 'default') {
+                document.getElementById('gridInput').value = '[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16]]';
+                document.getElementById('inputY').value = 0;
+                document.getElementById('inputX').value = 0;
+                document.getElementById('inputK').value = 4;
+            } else if (presetVal === 'inner') {
+                document.getElementById('gridInput').value = '[[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15],[16,17,18,19,20],[21,22,23,24,25]]';
+                document.getElementById('inputY').value = 1;
+                document.getElementById('inputX').value = 1;
+                document.getElementById('inputK').value = 3;
+            } else if (presetVal === 'tall') {
+                document.getElementById('gridInput').value = '[[1,2,3],[4,5,6],[7,8,9],[10,11,12],[13,14,15]]';
+                document.getElementById('inputY').value = 1;
+                document.getElementById('inputX').value = 0;
+                document.getElementById('inputK').value = 3;
+            }
+            loadSimulation();
+        }
+
+        function loadSimulation() {
+            if (isPlaying) togglePlay();
+
+            const gridStr = document.getElementById('gridInput').value;
+            const inputY = parseInt(document.getElementById('inputY').value);
+            const inputX = parseInt(document.getElementById('inputX').value);
+            const inputK = parseInt(document.getElementById('inputK').value);
+            const errorMsg = document.getElementById('errorMsg');
+
+            try {
+                const initialGrid = JSON.parse(gridStr);
+
+                if (!Array.isArray(initialGrid) || !Array.isArray(initialGrid[0])) {
+                    throw new Error("Input must be a valid 2D JSON array.");
+                }
+                
+                // Bounds validation
+                if (inputY < 0 || inputX < 0 || inputK < 1) {
+                    throw new Error("Invalid parameters. X/Y must be >= 0, K must be >= 1.");
+                }
+                if (inputY + inputK > initialGrid.length || inputX + inputK > initialGrid[0].length) {
+                    throw new Error(`Submatrix out of bounds! Y+K (${inputY+inputK}) > Rows (${initialGrid.length}) OR X+K (${inputX+inputK}) > Cols (${initialGrid[0].length})`);
+                }
+
+                activeParams = { y: inputY, x: inputX, k: inputK };
+                originalGrid = copyGrid(initialGrid);
+                const result = runCustomCode(currentCodeText, initialGrid, activeParams);
+                
+                if (result.error) {
+                    errorMsg.innerText = "Execution Error:\n" + result.error;
+                    errorMsg.classList.remove('hidden');
+                    steps = [];
+                    return;
+                }
+
+                errorMsg.classList.add('hidden');
+                steps = result.steps;
+                
+                const slider = document.getElementById('stepSlider');
+                slider.max = steps.length > 0 ? steps.length - 1 : 0;
+                slider.value = 0;
+                
+                currentStepIndex = 0;
+
+                const gridContainer = document.getElementById('gridContainer');
+                const cols = initialGrid[0].length;
+                gridContainer.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+                renderStep(0);
+            } catch (e) {
+                errorMsg.innerText = e.message || "Error parsing input. Ensure it is a valid JSON 2D Array of numbers.";
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // --- Rendering Engine ---
+        function renderStep(index) {
+            if (steps.length === 0) return;
+            const step = steps[index];
+            
+            document.getElementById('stepCounter').innerText = `${index + 1}/${steps.length}`;
+            document.getElementById('stepSlider').value = index;
+            document.getElementById('stepMessage').innerText = step.message;
+            
+            // Register Displays logic
+            let sourceVal = '--'; let sourceCoord = '';
+            let targetVal = '--'; let targetCoord = '';
+            let tempVal = step.tempVal !== null ? step.tempVal.val : '--';
+            let tempCoord = step.tempVal !== null ? `[${step.tempVal.r},${step.tempVal.c}]` : '';
+
+            step.activeCells.forEach(cell => {
+                const val = step.grid[cell.r][cell.c];
+                if (cell.role === 'temp_save') {
+                    sourceVal = val;
+                    sourceCoord = `[${cell.r},${cell.c}]`;
+                }
+                if (cell.role === 'read') {
+                    sourceVal = val;
+                    sourceCoord = `[${cell.r},${cell.c}]`;
+                }
+                if (cell.role === 'write') {
+                    targetVal = val;
+                    targetCoord = `[${cell.r},${cell.c}]`;
+                }
+            });
+
+            // In the final step of the swap, Source is actually the Temp variable
+            if (step.phase === 'SWAP_2') {
+                sourceVal = tempVal; 
+                sourceCoord = 'Temp Var';
+            }
+
+            // Update Register DOM
+            document.getElementById('sourceDisplay').innerText = sourceVal;
+            document.getElementById('sourceCoord').innerText = sourceCoord;
+            
+            document.getElementById('tempDisplay').innerText = tempVal;
+            document.getElementById('tempCoord').innerText = tempCoord;
+            
+            document.getElementById('targetDisplay').innerText = targetVal;
+            document.getElementById('targetCoord').innerText = targetCoord;
+
+            const phaseBadge = document.getElementById('phaseBadge');
+            phaseBadge.innerText = step.phase;
+            phaseBadge.className = 'px-2.5 py-1 text-xs font-bold uppercase rounded-md whitespace-nowrap shadow-sm ';
+            switch (step.phase) {
+                case 'TEMP':    phaseBadge.className += 'bg-amber-200 text-amber-800 ring-2 ring-amber-400'; break;
+                case 'SWAP_1':  phaseBadge.className += 'bg-blue-200 text-blue-800 ring-2 ring-blue-400'; break;
+                case 'SWAP_2':  phaseBadge.className += 'bg-emerald-200 text-emerald-800 ring-2 ring-emerald-400'; break;
+                case 'DONE':    phaseBadge.className += 'bg-indigo-600 text-white'; break;
+                case 'START':   phaseBadge.className += 'bg-blue-200 text-blue-800'; break;
+                default:        phaseBadge.className += 'bg-slate-100 text-slate-500';
+            }
+
+            const gridContainer = document.getElementById('gridContainer');
+            gridContainer.innerHTML = ''; 
+            
+            const rows = step.grid.length;
+            const cols = step.grid[0].length;
+            
+            const isInSubmatrix = (r, c) => {
+                return r >= activeParams.y && r < activeParams.y + activeParams.k &&
+                       c >= activeParams.x && c < activeParams.x + activeParams.k;
+            };
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const val = step.grid[r][c];
+                    const inTarget = isInSubmatrix(r, c);
+                    const activeObj = step.activeCells.find(cell => cell.r === r && cell.c === c);
+                    const isModifiedEnd = (step.phase === 'DONE' && val !== originalGrid[r][c]);
+                    
+                    let bgClass = inTarget ? "bg-indigo-50/60" : "bg-white";
+                    let borderClass = inTarget ? "border-indigo-200" : "border-slate-200";
+                    let textClass = inTarget ? "text-indigo-900" : "text-slate-400";
+                    
+                    let ringClass = '';
+                    let zIndex = 'z-0';
+                    let transformClass = 'scale-100';
+                    let innerValHtml = `<div class="pointer-events-none">${val}</div>`;
+
+                    if (activeObj) {
+                        zIndex = 'z-20';
+                        if (activeObj.role === 'temp_save') {
+                            bgClass = 'bg-amber-100';
+                            borderClass = 'border-amber-400';
+                            ringClass = 'ring-4 ring-amber-300 ring-offset-2';
+                            textClass = 'text-amber-900';
+                            transformClass = 'scale-110';
+                        } else if (activeObj.role === 'read') {
+                            bgClass = 'bg-blue-100';
+                            borderClass = 'border-blue-400 border-dashed';
+                            ringClass = 'ring-4 ring-blue-300 ring-offset-2';
+                            textClass = 'text-blue-900';
+                            transformClass = 'scale-105';
+                        } else if (activeObj.role === 'write') {
+                            bgClass = 'bg-emerald-100';
+                            borderClass = 'border-emerald-500';
+                            ringClass = 'ring-4 ring-emerald-400 ring-offset-2';
+                            textClass = 'text-emerald-900';
+                            transformClass = 'scale-110';
+                        }
+                    } else if (isModifiedEnd) {
+                        bgClass = 'bg-purple-100';
+                        borderClass = 'border-purple-400';
+                        textClass = 'text-purple-900';
+                        zIndex = 'z-10';
+                        innerValHtml = `<div class="pointer-events-none">${val}</div><div class="absolute bottom-0.5 right-1.5 text-[9px] line-through text-purple-500/80 font-mono tracking-tighter" title="Original Value">${originalGrid[r][c]}</div>`;
+                    }
+
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = `cell-transition relative flex items-center justify-center w-[44px] h-[44px] sm:w-[56px] sm:h-[56px] text-lg sm:text-xl font-bold rounded-xl border-2 ${bgClass} ${borderClass} ${textClass} ${ringClass} ${zIndex} ${transformClass}`;
+                    
+                    const hintDiv = `<div class="absolute top-1 left-1.5 text-[8px] sm:text-[9px] opacity-40 font-mono tracking-tighter leading-none pointer-events-none">(${r},${c})</div>`;
+                    
+                    cellDiv.innerHTML = `${hintDiv}${innerValHtml}`;
+                    gridContainer.appendChild(cellDiv);
+                }
+            }
+
+            // Code Line Tracking
+            document.querySelectorAll('#codeBlock > div').forEach(div => {
+                div.classList.remove('bg-indigo-900', 'border-yellow-400', 'bg-opacity-40');
+                div.classList.add('border-transparent');
+            });
+            document.querySelectorAll('[id^="caret-"]').forEach(caret => {
+                caret.classList.replace('opacity-100', 'opacity-0');
+            });
+
+            if (step.line > 0) {
+                const activeLineEl = document.getElementById(`line-${step.line}`);
+                const activeCaretEl = document.getElementById(`caret-${step.line}`);
+                
+                if (activeLineEl) {
+                    activeLineEl.classList.remove('border-transparent');
+                    activeLineEl.classList.add('bg-indigo-900', 'border-yellow-400', 'bg-opacity-40');
+                    if (activeCaretEl) activeCaretEl.classList.replace('opacity-0', 'opacity-100');
+                    
+                    const container = document.getElementById('codeContainer');
+                    const offset = activeLineEl.offsetTop - (container.clientHeight / 2) + (activeLineEl.clientHeight / 2);
+                    container.scrollTo({ top: offset, behavior: 'smooth' });
+                }
+            }
+        }
+
+        // --- Playback Controls ---
+        function goToStep(index) {
+            currentStepIndex = parseInt(index);
+            renderStep(currentStepIndex);
+        }
+
+        function nextStep() {
+            if (currentStepIndex < steps.length - 1) {
+                currentStepIndex++;
+                renderStep(currentStepIndex);
+            } else if (isPlaying) {
+                togglePlay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderStep(currentStepIndex);
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('playBtn');
+            if (isPlaying) {
+                clearInterval(playInterval);
+                isPlaying = false;
+                btn.innerText = "PLAY";
+                btn.classList.replace('bg-rose-600', 'bg-indigo-600');
+                btn.classList.replace('hover:bg-rose-700', 'hover:bg-indigo-700');
+            } else {
+                if (currentStepIndex >= steps.length - 1) currentStepIndex = 0;
+                isPlaying = true;
+                btn.innerText = "PAUSE";
+                btn.classList.replace('bg-indigo-600', 'bg-rose-600');
+                btn.classList.replace('hover:bg-indigo-700', 'hover:bg-rose-700');
+                
+                const speed = document.getElementById('speedSlider').value;
+                playInterval = setInterval(nextStep, speed);
+            }
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            if (isPlaying) {
+                clearInterval(playInterval);
+                playInterval = setInterval(nextStep, this.value);
+            }
+        });
+
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+                if (e.code === 'Space') {
+                    e.preventDefault(); 
+                    togglePlay();
+                } else if (e.code === 'ArrowRight') {
+                    e.preventDefault();
+                    if(isPlaying) togglePlay();
+                    nextStep();
+                } else if (e.code === 'ArrowLeft') {
+                    e.preventDefault();
+                    if(isPlaying) togglePlay();
+                    prevStep();
+                }
+            });
+        }
+
+        window.onload = () => {
+            renderCodeView(currentCodeText);
+            loadSimulation();
+            initResizer();
+            initKeyboardShortcuts();
+        };
+
+        // --- Drag to Resize Logic ---
+        function initResizer() {
+            const resizer = document.getElementById('dragResizer');
+            const leftPane = document.getElementById('leftPane');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            let isResizing = false;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none'; 
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'dragOverlay';
+                overlay.className = 'fixed inset-0 z-[9999]';
+                document.body.appendChild(overlay);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const containerRect = mainContainer.getBoundingClientRect();
+                const leftRect = leftPane.getBoundingClientRect();
+                let newLeftWidth = e.clientX - leftRect.left;
+                
+                const minWidth = 350; 
+                const maxWidth = containerRect.width - 350; 
+                
+                if (newLeftWidth < minWidth) newLeftWidth = minWidth;
+                if (newLeftWidth > maxWidth) newLeftWidth = maxWidth;
+
+                leftPane.style.width = `${newLeftWidth}px`;
+                leftPane.style.flex = 'none';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    
+                    const overlay = document.getElementById('dragOverlay');
+                    if (overlay) overlay.remove();
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth < 1024) {
+                    leftPane.style.width = '';
+                    leftPane.style.flex = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

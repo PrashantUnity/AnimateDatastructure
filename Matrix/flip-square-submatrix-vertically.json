@@ -1,0 +1,14 @@
+{
+  "ProblemUri": "https://leetcode.com/problems/flip-square-submatrix-vertically",
+  "ProblemName": "Flip Square Submatrix Vertically",
+  "ProblemDescription": "You are given an m x n integer matrix grid, and three integers x, y, and k.\n\nThe integers x and y represent the row and column indices of the top-left corner of a square submatrix and the integer k represents the size (side length) of the square submatrix.\n\nYour task is to flip the submatrix by reversing the order of its rows vertically.\n\nReturn the updated matrix.",
+  "ProblemSolution": "BFS with Prefix Sum",
+  "Difficulty": "Easy",
+  "Topics": [
+    "Array",
+    "Two Pointers",
+    "Matrix",
+    "Weekly Contest 462"
+  ],
+  "ProblemNumber": 3643
+}
