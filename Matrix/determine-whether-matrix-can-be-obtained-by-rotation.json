@@ -1,0 +1,14 @@
+{
+  "ProblemUri": "https://leetcode.com/problems/determine-whether-matrix-can-be-obtained-by-rotation",
+  "ProblemName": "Determine Whether Matrix Can Be Obtained By Rotation",
+  "ProblemDescription": "Given two n x n binary matrices mat and target, return true if it is possible to make mat equal to target by rotating mat in 90-degree increments, or false otherwise.",
+  "ProblemSolution": "BFS with Prefix Sum",
+  "Difficulty": "Easy",
+  "Topics": [
+    "Array",
+    "Two Pointers",
+    "Matrix",
+    "Weekly Contest 244"
+  ],
+  "ProblemNumber": 18666
+}

@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Visualizer: Correct FindRotation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .cell-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        background-color 0.3s ease, 
+                        border-color 0.3s ease,
+                        box-shadow 0.3s ease;
+        }
+        /* Custom scrollbars */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1e293b; 
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        .light-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .light-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white p-4 sm:px-8 shadow-md">
+        <div class="w-full flex items-center justify-between">
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Correct FindRotation Visualizer</h1>
+            <div class="text-xs sm:text-sm bg-indigo-700 px-3 py-1 rounded-full border border-indigo-500 shadow-inner flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                Transpose + Reverse
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="mainContainer" class="flex-grow p-4 sm:p-6 w-full flex flex-col xl:flex-row gap-4 relative">
+        
+        <!-- Left Column: Controls & Grid -->
+        <div id="leftPane" class="w-full xl:w-[65%] min-w-[300px] flex flex-col gap-4">
+            
+            <!-- Setup Panel -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm uppercase tracking-wider text-slate-500 font-bold">1. Matrix Configuration</h2>
+                </div>
+                
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row gap-4 w-full">
+                        <div class="flex-grow">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Source Matrix (mat)</label>
+                            <input type="text" id="matInput" value='[[1,2,3],[4,5,6],[7,8,9]]' 
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm text-slate-700 shadow-inner">
+                        </div>
+                        <div class="flex-grow">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Target Matrix (target)</label>
+                            <input type="text" id="targetInput" value='[[7,4,1],[8,5,2],[9,6,3]]' 
+                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-sm text-slate-700 shadow-inner">
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <span class="text-xs font-semibold text-slate-400">Presets:</span>
+                            <select id="presetSelect" onchange="loadPreset()" class="flex-grow sm:flex-grow-0 px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm bg-slate-50 font-medium text-slate-700">
+                                <option value="valid3x3">3x3 Valid Rotation</option>
+                                <option value="valid2x2">2x2 Valid Rotation</option>
+                                <option value="invalid2x2">2x2 Invalid Rotation</option>
+                            </select>
+                        </div>
+
+                        <button id="loadBtn" onclick="loadSimulation()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2 rounded-lg font-bold transition-colors shadow-sm whitespace-nowrap">
+                            LOAD & TRACE
+                        </button>
+                    </div>
+                </div>
+
+                <div id="errorMsg" class="text-rose-600 bg-rose-50 border border-rose-200 p-3 rounded-lg text-sm mt-3 hidden font-mono"></div>
+            </div>
+
+            <!-- Visualization Panel -->
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 flex-grow flex flex-col">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                    <h2 class="text-sm uppercase tracking-wider text-slate-500 font-bold">2. Memory State & Execution</h2>
+                    <div id="phaseBadge" class="px-3 py-1.5 text-xs font-bold uppercase rounded-md shadow-sm bg-slate-200 text-slate-600">IDLE</div>
+                </div>
+
+                <!-- Variable Dashboard -->
+                <div class="flex flex-wrap items-center justify-center gap-3 mb-6 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <!-- i, j -->
+                    <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 text-center shadow-sm w-24">
+                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Loop</div>
+                        <div class="font-mono font-bold text-slate-700 text-lg">
+                            <span class="text-slate-400 text-xs">i=</span><span id="var-i">-</span> 
+                            <span class="text-slate-400 text-xs ml-1">j=</span><span id="var-j">-</span>
+                        </div>
+                    </div>
+                    <!-- val 1 -->
+                    <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-200 text-center shadow-sm min-w-[130px] transition-all duration-300" id="box-v1">
+                        <div class="text-[10px] uppercase font-bold text-blue-500 tracking-widest" id="v1-title">Val 1</div>
+                        <div class="font-mono font-black text-blue-700 text-2xl" id="var-v1">-</div>
+                    </div>
+                    
+                    <div class="text-slate-300 font-bold hidden sm:block">⟷</div>
+
+                    <!-- val 2 -->
+                    <div class="bg-purple-50 px-4 py-2 rounded-lg border border-purple-200 text-center shadow-sm min-w-[130px] transition-all duration-300" id="box-v2">
+                        <div class="text-[10px] uppercase font-bold text-purple-500 tracking-widest" id="v2-title">Val 2</div>
+                        <div class="font-mono font-black text-purple-700 text-2xl" id="var-v2">-</div>
+                    </div>
+                    <!-- match -->
+                    <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 text-center shadow-sm w-28 transition-all duration-300" id="box-match">
+                        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Match</div>
+                        <div class="font-mono font-black text-slate-300 text-xl" id="var-match">-</div>
+                    </div>
+                </div>
+
+                <!-- Dual Grids Area -->
+                <div class="flex-grow flex flex-col lg:flex-row items-center justify-around gap-8 min-h-[300px]">
+                    
+                    <!-- MAT Grid -->
+                    <div class="flex flex-col items-center gap-3">
+                        <h3 class="text-sm font-black tracking-widest text-indigo-400 uppercase">Memory: mat[][]</h3>
+                        <div id="matGridContainer" class="grid gap-2 sm:gap-3 transition-all duration-300 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 bg-slate-50/50">
+                            <!-- Cells injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="hidden lg:flex w-px h-[200px] bg-slate-200"></div>
+
+                    <!-- TARGET Grid -->
+                    <div class="flex flex-col items-center gap-3">
+                        <h3 class="text-sm font-black tracking-widest text-slate-500 uppercase">Memory: target[][]</h3>
+                        <div id="targetGridContainer" class="grid gap-2 sm:gap-3 transition-all duration-300 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 bg-slate-50/50">
+                            <!-- Cells injected via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Legend -->
+                <div class="flex gap-x-5 gap-y-2 justify-center mt-6 text-[11px] flex-wrap font-medium text-slate-600 items-center bg-slate-50 px-4 py-3 rounded-lg border border-slate-100">
+                    <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-blue-100 border-2 border-blue-400 rounded"></div> Active Val 1</div>
+                    <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-purple-100 border-2 border-purple-400 rounded"></div> Active Val 2</div>
+                    <div class="w-px h-4 bg-slate-300 mx-2"></div>
+                    <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-white border border-slate-300 border-dashed rounded flex items-center justify-center text-[8px]">❌</div> Comparison Status</div>
+                    <div class="flex items-center gap-1.5"><div class="w-3 h-3 bg-emerald-100 border-2 border-emerald-500 rounded"></div> Action Completed</div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
+                        <button onclick="prevStep()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition text-slate-700 shadow-sm" title="Previous Step">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <button id="playBtn" onclick="togglePlay()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition font-bold w-32 text-center shadow-sm tracking-wider">
+                            PLAY
+                        </button>
+                        <button onclick="nextStep()" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition text-slate-700 shadow-sm" title="Next Step">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="flex-grow flex items-center gap-4 px-2 sm:px-4 w-full">
+                        <span class="text-xs font-bold text-slate-400 whitespace-nowrap w-12 text-right" id="stepCounter">0/0</span>
+                        <input type="range" id="stepSlider" min="0" max="0" value="0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" oninput="goToStep(this.value)">
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <input type="range" id="speedSlider" min="50" max="1500" value="600" dir="rtl" class="w-20 sm:w-24 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500" title="Adjust Playback Speed">
+                    </div>
+                </div>
+                <div class="mt-4 p-3.5 bg-slate-800 text-emerald-400 rounded-lg text-sm border border-slate-700 font-mono tracking-tight shadow-inner flex items-start gap-3">
+                    <div class="text-slate-500 select-none">&gt;_</div>
+                    <div id="stepMessage" class="flex-grow leading-relaxed">Click 'LOAD & TRACE' and then 'PLAY' to compile and start visualization.</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Draggable Resizer (Desktop Only) -->
+        <div id="dragResizer" class="hidden xl:flex w-4 cursor-col-resize items-center justify-center -mx-2 z-20 group select-none">
+            <div class="h-24 w-1.5 bg-slate-200 group-hover:bg-indigo-500 rounded-full transition-colors"></div>
+        </div>
+
+        <!-- Right Column: Code Viewer -->
+        <div id="rightPane" class="w-full xl:flex-1 min-w-[300px] bg-[#0d1117] rounded-xl shadow-lg border border-slate-800 flex flex-col overflow-hidden relative">
+            <div class="bg-[#161b22] px-4 py-3 border-b border-slate-700 flex justify-between items-center z-10">
+                <h2 class="text-slate-300 font-semibold text-xs tracking-wider uppercase font-mono">RotateAndCheck (JS)</h2>
+                <div class="flex gap-1.5 hidden sm:flex">
+                    <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                </div>
+            </div>
+            <div class="relative flex-grow h-[400px] xl:h-auto">
+                <div class="absolute inset-0 overflow-y-auto custom-scroll p-4 pb-12" id="codeContainer">
+                    <pre class="font-mono text-[13px] sm:text-[14px] leading-relaxed text-[#c9d1d9] w-full" id="codeBlock"></pre>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Static Code Representation ---
+        const displayCode = `let n = mat.length;
+for (let r = 0; r < 4; r++) {
+    
+    // 1. Check if matrices match
+    let match = true;
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+            if (mat[i][j] !== target[i][j]) {
+                match = false; break;
+            }
+        }
+        if (!match) break;
+    }
+    
+    if (match) return true;
+
+    // 2. Transpose Matrix
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            let temp = mat[i][j];
+            mat[i][j] = mat[j][i];
+            mat[j][i] = temp;
+        }
+    }
+
+    // 3. Reverse Rows
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < Math.floor(n / 2); j++) {
+            let temp = mat[i][j];
+            mat[i][j] = mat[i][n - 1 - j];
+            mat[i][n - 1 - j] = temp;
+        }
+    }
+}
+return false;`;
+
+        // Syntax highlighting wrapper
+        function highlightJS(code) {
+            return code
+                .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/\b(let|const|var|for|if|else|return|function|while|true|false|break)\b/g, '<span class="text-[#ff7b72]">$1</span>')
+                .replace(/\b(\d+)\b/g, '<span class="text-[#79c0ff]">$1</span>')
+                .replace(/(\/\/.*)/g, '<span class="text-[#8b949e] italic">$1</span>')
+                .replace(/(\!|\=\=\=|\!\=\=)/g, '<span class="text-[#d2a8ff]">$1</span>');
+        }
+
+        function renderCodeView() {
+            const codeLines = displayCode.split('\n');
+            const codeBlock = document.getElementById('codeBlock');
+            codeBlock.innerHTML = codeLines.map((line, index) => {
+                const lineNum = index + 1;
+                return `<div id="line-${lineNum}" class="px-2 py-[2px] border-l-[3px] border-transparent flex items-start relative transition-colors duration-150 group">
+                    <span id="caret-${lineNum}" class="absolute left-0 top-1.5 -ml-[3px] text-yellow-400 opacity-0 transition-opacity duration-200 text-[10px]">▶</span>
+                    <span class="text-[#484f58] w-8 inline-block select-none ml-2 text-right pr-3 shrink-0 text-[11px] pt-[2px] group-hover:text-slate-400">${lineNum}</span>
+                    <span class="whitespace-pre-wrap break-all">${highlightJS(line)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // --- Core Application State & Explicit Step Generator ---
+        let steps = [];
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let playInterval;
+
+        const copyGrid = (g) => g.map(row => [...row]);
+
+        function generateExecutionSteps(initialMat, initialTarget) {
+            let generatedSteps = [];
+            let mat = copyGrid(initialMat);
+            let target = copyGrid(initialTarget);
+            let n = mat.length;
+
+            generatedSteps.push({
+                mat: copyGrid(mat), target: copyGrid(target),
+                phase: 'START', line: 1, 
+                msg: "Initialization complete. Entering loop..."
+            });
+
+            for (let r = 0; r < 4; r++) {
+                let match = true;
+                generatedSteps.push({
+                    mat: copyGrid(mat), target: copyGrid(target),
+                    phase: 'ROT_START', line: 2, r, match,
+                    msg: `Start iteration ${r+1}/4. <br>Phase 1: Assume <span class="text-emerald-400">match = true</span>, begin scanning.`
+                });
+
+                // 1. CHECK MATCH
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        let valM = mat[i][j];
+                        let valT = target[i][j];
+                        let isEq = (valM === valT);
+                        
+                        generatedSteps.push({
+                            mat: copyGrid(mat), target: copyGrid(target),
+                            phase: 'CHECK', line: 8, r, i, j, 
+                            r1: i, c1: j, r2: -1, c2: -1, tr: i, tc: j, // tr/tc for target
+                            val1: valM, val2: valT, match,
+                            v1_label: `mat[${i}][${j}]`, v2_label: `target[${i}][${j}]`,
+                            msg: `Compare <span class="text-blue-400 font-bold">mat[${i}][${j}] (${valM})</span> with <span class="text-purple-400 font-bold">target[${i}][${j}] (${valT})</span>. ${isEq ? '✅ Match.' : '❌ Mismatch!'}`
+                        });
+
+                        if (!isEq) {
+                            match = false;
+                            generatedSteps.push({
+                                mat: copyGrid(mat), target: copyGrid(target),
+                                phase: 'CHECK_FAIL', line: 9, r, i, j, match: false,
+                                msg: "Mismatch found. Break out of checking loop."
+                            });
+                            break;
+                        }
+                    }
+                    if (!match) break;
+                }
+                
+                if (match) {
+                    generatedSteps.push({
+                        mat: copyGrid(mat), target: copyGrid(target),
+                        phase: 'MATCH', line: 15, r, match: true,
+                        msg: `Match is true! Found a valid rotation. <span class="text-emerald-400 font-bold">Return TRUE</span>.`
+                    });
+                    return { steps: generatedSteps, error: null };
+                }
+
+                // 2. TRANSPOSE
+                generatedSteps.push({
+                    mat: copyGrid(mat), target: copyGrid(target),
+                    phase: 'TRANSPOSE_START', line: 18, r, match: false,
+                    msg: "Match failed. Starting 90° Rotation... <br>Step A: <b>Transpose Matrix</b> (swap [i][j] with [j][i])."
+                });
+
+                for (let i = 0; i < n; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        let temp1 = mat[i][j];
+                        let temp2 = mat[j][i];
+                        
+                        generatedSteps.push({
+                            mat: copyGrid(mat), target: copyGrid(target),
+                            phase: 'TRANSPOSE', line: 20, r, i, j,
+                            r1: i, c1: j, r2: j, c2: i, val1: temp1, val2: temp2,
+                            v1_label: `mat[${i}][${j}]`, v2_label: `mat[${j}][${i}]`,
+                            msg: `Transpose: Swapping <span class="text-blue-400 font-bold">mat[${i}][${j}] (${temp1})</span> and <span class="text-purple-400 font-bold">mat[${j}][${i}] (${temp2})</span>.`
+                        });
+
+                        mat[i][j] = temp2;
+                        mat[j][i] = temp1;
+
+                        generatedSteps.push({
+                            mat: copyGrid(mat), target: copyGrid(target),
+                            phase: 'SWAP', line: 22, r, i, j,
+                            r1: i, c1: j, r2: j, c2: i, val1: temp2, val2: temp1,
+                            v1_label: `mat[${i}][${j}]`, v2_label: `mat[${j}][${i}]`,
+                            msg: `Transposed elements successfully.`
+                        });
+                    }
+                }
+
+                // 3. REVERSE ROWS
+                generatedSteps.push({
+                    mat: copyGrid(mat), target: copyGrid(target),
+                    phase: 'REVERSE_START', line: 27, r, match: false,
+                    msg: "Step B: <b>Reverse Rows</b> (swap [i][j] with [i][n-1-j])."
+                });
+
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < Math.floor(n / 2); j++) {
+                        let temp1 = mat[i][j];
+                        let temp2 = mat[i][n - 1 - j];
+                        
+                        generatedSteps.push({
+                            mat: copyGrid(mat), target: copyGrid(target),
+                            phase: 'REVERSE', line: 29, r, i, j,
+                            r1: i, c1: j, r2: i, c2: n - 1 - j, val1: temp1, val2: temp2,
+                            v1_label: `mat[${i}][${j}]`, v2_label: `mat[${i}][${n - 1 - j}]`,
+                            msg: `Reverse: Swapping <span class="text-blue-400 font-bold">mat[${i}][${j}] (${temp1})</span> and <span class="text-purple-400 font-bold">mat[${i}][${n - 1 - j}] (${temp2})</span>.`
+                        });
+
+                        mat[i][j] = temp2;
+                        mat[i][n - 1 - j] = temp1;
+
+                        generatedSteps.push({
+                            mat: copyGrid(mat), target: copyGrid(target),
+                            phase: 'SWAP', line: 31, r, i, j,
+                            r1: i, c1: j, r2: i, c2: n - 1 - j, val1: temp2, val2: temp1,
+                            v1_label: `mat[${i}][${j}]`, v2_label: `mat[${i}][${n - 1 - j}]`,
+                            msg: `Reversed elements successfully.`
+                        });
+                    }
+                }
+            }
+
+            generatedSteps.push({
+                mat: copyGrid(mat), target: copyGrid(target),
+                phase: 'FAIL', line: 35, match: false,
+                msg: `All 4 rotations attempted. <span class="text-rose-400 font-bold">Return FALSE</span>.`
+            });
+
+            return { steps: generatedSteps, error: null };
+        }
+
+        function loadPreset() {
+            const presetVal = document.getElementById('presetSelect').value;
+            if (presetVal === 'valid3x3') {
+                document.getElementById('matInput').value = '[[1,2,3],[4,5,6],[7,8,9]]';
+                document.getElementById('targetInput').value = '[[7,4,1],[8,5,2],[9,6,3]]';
+            } else if (presetVal === 'valid2x2') {
+                document.getElementById('matInput').value = '[[0,1],[1,1]]';
+                document.getElementById('targetInput').value = '[[1,0],[1,1]]';
+            } else if (presetVal === 'invalid2x2') {
+                document.getElementById('matInput').value = '[[1,0],[0,0]]';
+                document.getElementById('targetInput').value = '[[0,0],[0,1]]';
+            }
+            loadSimulation();
+        }
+
+        function loadSimulation() {
+            if (isPlaying) togglePlay();
+
+            const matStr = document.getElementById('matInput').value;
+            const targetStr = document.getElementById('targetInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            try {
+                const initialMat = JSON.parse(matStr);
+                const initialTarget = JSON.parse(targetStr);
+
+                if (!Array.isArray(initialMat) || !Array.isArray(initialMat[0]) || 
+                    !Array.isArray(initialTarget) || !Array.isArray(initialTarget[0])) {
+                    throw new Error("Inputs must be valid 2D JSON arrays.");
+                }
+
+                if (initialMat.length !== initialMat[0].length || initialTarget.length !== initialTarget[0].length) {
+                    throw new Error("Algorithm expects NxN matrices (square arrays).");
+                }
+                if (initialMat.length !== initialTarget.length) {
+                     throw new Error("Source and Target matrices must be the same size.");
+                }
+
+                const result = generateExecutionSteps(initialMat, initialTarget);
+                
+                if (result.error) {
+                    errorMsg.innerText = "Execution Error:\n" + result.error;
+                    errorMsg.classList.remove('hidden');
+                    steps = [];
+                    return;
+                }
+
+                errorMsg.classList.add('hidden');
+                steps = result.steps;
+                
+                const slider = document.getElementById('stepSlider');
+                slider.max = steps.length > 0 ? steps.length - 1 : 0;
+                slider.value = 0;
+                
+                currentStepIndex = 0;
+
+                // Setup Grid templates
+                const n = initialMat.length;
+                document.getElementById('matGridContainer').style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
+                document.getElementById('targetGridContainer').style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
+
+                renderStep(0);
+            } catch (e) {
+                errorMsg.innerText = e.message || "Error parsing input. Ensure it is a valid JSON 2D Array of numbers.";
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // --- Rendering Engine ---
+        function generateMatGridHtml(gridData, step) {
+            let html = '';
+            const n = gridData.length;
+            
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    const val = gridData[r][c];
+                    
+                    let bgClass = "bg-white", borderClass = "border-slate-200", textClass = "text-slate-600";
+                    let zIndex = 'z-0', transformClass = 'scale-100', ringClass = '';
+
+                    // Active cells in CHECK
+                    if (step.phase === 'CHECK') {
+                        if (r === step.r1 && c === step.c1) {
+                            bgClass = 'bg-blue-100'; borderClass = 'border-blue-400'; textClass = 'text-blue-900';
+                            zIndex = 'z-20'; transformClass = 'scale-110 shadow-md';
+                            ringClass = 'ring-4 ring-blue-300/40 ring-offset-1';
+                        }
+                    } 
+                    // Active cells in TRANSPOSE or REVERSE
+                    else if (step.phase === 'TRANSPOSE' || step.phase === 'REVERSE') {
+                        if (r === step.r1 && c === step.c1) {
+                            bgClass = 'bg-blue-100'; borderClass = 'border-blue-400'; textClass = 'text-blue-900';
+                            zIndex = 'z-20'; transformClass = 'scale-110 shadow-md';
+                            ringClass = 'ring-4 ring-blue-300/40 ring-offset-1';
+                        }
+                        if (r === step.r2 && c === step.c2) { 
+                            bgClass = 'bg-purple-100'; borderClass = 'border-purple-400'; textClass = 'text-purple-900';
+                            zIndex = 'z-20'; transformClass = 'scale-110 shadow-md';
+                            ringClass = 'ring-4 ring-purple-300/40 ring-offset-1';
+                        }
+                    } 
+                    // Active cells in SWAP
+                    else if (step.phase === 'SWAP') {
+                        if ((r === step.r1 && c === step.c1) || (r === step.r2 && c === step.c2)) {
+                            bgClass = 'bg-emerald-100'; borderClass = 'border-emerald-500'; textClass = 'text-emerald-900';
+                            zIndex = 'z-20'; transformClass = 'scale-110 shadow-lg';
+                        }
+                    }
+
+                    // End game styling
+                    if (step.phase === 'MATCH') {
+                        bgClass = 'bg-emerald-50'; borderClass = 'border-emerald-300';
+                    } else if (step.phase === 'FAIL') {
+                        bgClass = 'bg-rose-50'; borderClass = 'border-rose-300';
+                    }
+
+                    html += `<div class="cell-transition relative flex items-center justify-center w-[52px] h-[52px] sm:w-[64px] sm:h-[64px] text-xl sm:text-2xl font-bold rounded-xl border-2 ${bgClass} ${borderClass} ${textClass} ${ringClass} ${zIndex} ${transformClass}">
+                        <div class="absolute top-1 left-1.5 text-[10px] opacity-40 font-mono tracking-tighter leading-none pointer-events-none">(${r},${c})</div>
+                        <div class="pointer-events-none">${val}</div>
+                    </div>`;
+                }
+            }
+            return html;
+        }
+
+        function generateTargetGridHtml(gridData, step) {
+            let html = '';
+            const n = gridData.length;
+            
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    const val = gridData[r][c];
+                    
+                    let bgClass = "bg-white", borderClass = "border-slate-200", textClass = "text-slate-600";
+                    let zIndex = 'z-0', transformClass = 'scale-100', ringClass = '';
+                    let overlay = '';
+
+                    // Active cells in COMPARE
+                    if (step.phase === 'CHECK') {
+                        if (r === step.tr && c === step.tc) {
+                            bgClass = 'bg-purple-50'; borderClass = 'border-purple-300 border-dashed'; textClass = 'text-purple-800';
+                            zIndex = 'z-20'; transformClass = 'scale-105';
+                            
+                            let isEq = (step.val1 === step.val2);
+                            overlay = `<div class="absolute -bottom-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-md border border-white ${!isEq ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}">${!isEq ? '❌' : '✅'}</div>`;
+                        }
+                    }
+
+                    // End game styling
+                    if (step.phase === 'MATCH') {
+                        bgClass = 'bg-emerald-50'; borderClass = 'border-emerald-300';
+                    }
+
+                    html += `<div class="cell-transition relative flex items-center justify-center w-[52px] h-[52px] sm:w-[64px] sm:h-[64px] text-xl sm:text-2xl font-bold rounded-xl border-2 ${bgClass} ${borderClass} ${textClass} ${ringClass} ${zIndex} ${transformClass}">
+                        <div class="absolute top-1 left-1.5 text-[10px] opacity-40 font-mono tracking-tighter leading-none pointer-events-none">(${r},${c})</div>
+                        <div class="pointer-events-none">${val}</div>
+                        ${overlay}
+                    </div>`;
+                }
+            }
+            return html;
+        }
+
+        function renderStep(index) {
+            if (steps.length === 0) return;
+            const step = steps[index];
+            
+            document.getElementById('stepCounter').innerText = `${index + 1}/${steps.length}`;
+            document.getElementById('stepSlider').value = index;
+            document.getElementById('stepMessage').innerHTML = step.msg;
+            
+            // Phase Badge Setup
+            const phaseBadge = document.getElementById('phaseBadge');
+            phaseBadge.innerText = step.phase;
+            phaseBadge.className = 'px-3 py-1.5 text-xs font-bold uppercase rounded-md shadow-sm whitespace-nowrap tracking-wider ';
+            switch (step.phase) {
+                case 'CHECK':    phaseBadge.className += 'bg-indigo-100 text-indigo-700 border border-indigo-200'; break;
+                case 'TRANSPOSE':
+                case 'REVERSE':  phaseBadge.className += 'bg-amber-100 text-amber-700 border border-amber-200'; break;
+                case 'SWAP':     phaseBadge.className += 'bg-emerald-100 text-emerald-700 border border-emerald-200'; break;
+                case 'START':    
+                case 'ROT_START':
+                case 'CHECK_FAIL':
+                case 'TRANSPOSE_START':
+                case 'REVERSE_START': phaseBadge.className += 'bg-slate-200 text-slate-600 border border-slate-300'; break;
+                case 'MATCH':    phaseBadge.className += 'bg-emerald-500 text-white shadow-md animate-pulse'; break;
+                case 'FAIL':     phaseBadge.className += 'bg-rose-500 text-white shadow-md'; break;
+            }
+
+            // Variables Dashboard Setup
+            document.getElementById('var-i').innerText = step.i !== undefined ? step.i : '-';
+            document.getElementById('var-j').innerText = step.j !== undefined ? step.j : '-';
+            
+            document.getElementById('v1-title').innerText = step.v1_label || 'Val 1';
+            const boxV1 = document.getElementById('box-v1');
+            const varV1 = document.getElementById('var-v1');
+            if (step.val1 !== undefined) {
+                varV1.innerText = step.val1;
+                boxV1.classList.remove('opacity-50');
+            } else {
+                varV1.innerText = '-';
+                boxV1.classList.add('opacity-50');
+            }
+
+            document.getElementById('v2-title').innerText = step.v2_label || 'Val 2';
+            const boxV2 = document.getElementById('box-v2');
+            const varV2 = document.getElementById('var-v2');
+            if (step.val2 !== undefined) {
+                varV2.innerText = step.val2;
+                boxV2.classList.remove('opacity-50');
+            } else {
+                varV2.innerText = '-';
+                boxV2.classList.add('opacity-50');
+            }
+
+            const boxMatch = document.getElementById('box-match');
+            const varMatch = document.getElementById('var-match');
+            if (step.match !== undefined) {
+                varMatch.innerText = step.match ? 'TRUE' : 'FALSE';
+                varMatch.className = `font-mono font-black text-xl ${step.match ? 'text-emerald-500' : 'text-rose-500'}`;
+            } else {
+                varMatch.innerText = '-';
+                varMatch.className = 'font-mono font-black text-slate-300 text-xl';
+            }
+
+            // Render Grids
+            document.getElementById('matGridContainer').innerHTML = generateMatGridHtml(step.mat, step);
+            document.getElementById('targetGridContainer').innerHTML = generateTargetGridHtml(step.target, step);
+
+            // Code Line Tracking
+            document.querySelectorAll('#codeBlock > div').forEach(div => {
+                div.classList.remove('bg-[#2d3748]', 'border-[#56d364]', 'bg-opacity-60');
+                div.classList.add('border-transparent');
+            });
+            document.querySelectorAll('[id^="caret-"]').forEach(caret => {
+                caret.classList.replace('opacity-100', 'opacity-0');
+            });
+
+            if (step.line > 0) {
+                const activeLineEl = document.getElementById(`line-${step.line}`);
+                const activeCaretEl = document.getElementById(`caret-${step.line}`);
+                
+                if (activeLineEl) {
+                    activeLineEl.classList.remove('border-transparent');
+                    activeLineEl.classList.add('bg-[#2d3748]', 'border-[#56d364]', 'bg-opacity-60');
+                    if (activeCaretEl) activeCaretEl.classList.replace('opacity-0', 'opacity-100');
+                    
+                    const container = document.getElementById('codeContainer');
+                    const offset = activeLineEl.offsetTop - (container.clientHeight / 2) + (activeLineEl.clientHeight / 2);
+                    container.scrollTo({ top: offset, behavior: 'smooth' });
+                }
+            }
+        }
+
+        // --- Playback Controls ---
+        function goToStep(index) {
+            currentStepIndex = parseInt(index);
+            renderStep(currentStepIndex);
+        }
+
+        function nextStep() {
+            if (currentStepIndex < steps.length - 1) {
+                currentStepIndex++;
+                renderStep(currentStepIndex);
+            } else if (isPlaying) {
+                togglePlay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                renderStep(currentStepIndex);
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('playBtn');
+            if (isPlaying) {
+                clearInterval(playInterval);
+                isPlaying = false;
+                btn.innerText = "PLAY";
+                btn.classList.replace('bg-rose-600', 'bg-indigo-600');
+                btn.classList.replace('hover:bg-rose-700', 'hover:bg-indigo-700');
+            } else {
+                if (currentStepIndex >= steps.length - 1) currentStepIndex = 0;
+                isPlaying = true;
+                btn.innerText = "PAUSE";
+                btn.classList.replace('bg-indigo-600', 'bg-rose-600');
+                btn.classList.replace('hover:bg-indigo-700', 'hover:bg-rose-700');
+                
+                const speed = document.getElementById('speedSlider').value;
+                playInterval = setInterval(nextStep, speed);
+            }
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            if (isPlaying) {
+                clearInterval(playInterval);
+                playInterval = setInterval(nextStep, this.value);
+            }
+        });
+
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+                if (e.code === 'Space') {
+                    e.preventDefault(); 
+                    togglePlay();
+                } else if (e.code === 'ArrowRight') {
+                    e.preventDefault();
+                    if(isPlaying) togglePlay();
+                    nextStep();
+                } else if (e.code === 'ArrowLeft') {
+                    e.preventDefault();
+                    if(isPlaying) togglePlay();
+                    prevStep();
+                }
+            });
+        }
+
+        window.onload = () => {
+            renderCodeView();
+            loadSimulation();
+            initResizer();
+            initKeyboardShortcuts();
+        };
+
+        // --- Drag to Resize Logic ---
+        function initResizer() {
+            const resizer = document.getElementById('dragResizer');
+            const leftPane = document.getElementById('leftPane');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            let isResizing = false;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none'; 
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'dragOverlay';
+                overlay.className = 'fixed inset-0 z-[9999]';
+                document.body.appendChild(overlay);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const containerRect = mainContainer.getBoundingClientRect();
+                const leftRect = leftPane.getBoundingClientRect();
+                let newLeftWidth = e.clientX - leftRect.left;
+                
+                const minWidth = 400; 
+                const maxWidth = containerRect.width - 300; 
+                
+                if (newLeftWidth < minWidth) newLeftWidth = minWidth;
+                if (newLeftWidth > maxWidth) newLeftWidth = maxWidth;
+
+                leftPane.style.width = `${newLeftWidth}px`;
+                leftPane.style.flex = 'none';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    
+                    const overlay = document.getElementById('dragOverlay');
+                    if (overlay) overlay.remove();
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth < 1280) { // xl breakpoint
+                    leftPane.style.width = '';
+                    leftPane.style.flex = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
