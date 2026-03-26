@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Partition Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions similar to React */
+        .grid-cell { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 p-6 font-sans flex flex-col items-center">
+
+    <div class="max-w-5xl w-full bg-white rounded-xl shadow-xl overflow-hidden flex flex-col border border-slate-200">
+        
+        <!-- Controls -->
+        <div class="bg-slate-100 p-4 border-b border-slate-200 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-2">
+                <button id="btn-reset" class="p-2 bg-white border border-slate-300 rounded hover:bg-slate-50 transition" title="Reset">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                </button>
+                <button id="btn-prev" class="p-2 bg-white border border-slate-300 rounded hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                </button>
+                <button id="btn-play" class="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition w-12 flex justify-center">
+                    <!-- Play Icon (Default) -->
+                    <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <!-- Pause Icon (Hidden initially) -->
+                    <svg id="icon-pause" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                </button>
+                <button id="btn-next" class="p-2 bg-white border border-slate-300 rounded hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                </button>
+                <span id="step-counter" class="ml-4 font-mono text-sm bg-white px-3 py-1 rounded border border-slate-200">
+                    Step 1 / 1
+                </span>
+            </div>
+            
+            <div class="flex gap-4 items-center">
+                <div class="flex gap-2 text-sm">
+                    <button id="btn-add-row" class="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">+ Row</button>
+                    <button id="btn-rem-row" class="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">- Row</button>
+                    <button id="btn-add-col" class="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50">+ Col</button>
+                    <button id="btn-rem-col" class="px-3 py-1 bg-white border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50">- Col</button>
+                </div>
+                <label class="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer border-l border-slate-300 pl-4">
+                    <input id="check-force-valid" type="checkbox" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"/>
+                    Force Valid Grid
+                </label>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex flex-col md:flex-row p-6 gap-8">
+            
+            <!-- Grids Area -->
+            <div class="flex flex-col gap-8 flex-1 items-center">
+                <div class="flex flex-col items-center">
+                    <h3 class="font-semibold mb-3 text-slate-600 uppercase tracking-wider text-sm">Live Grid</h3>
+                    <div id="live-grid" class="flex flex-col border-t border-l border-gray-300 shadow-sm">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center opacity-70 scale-90">
+                    <h3 class="font-semibold mb-2 text-slate-500 uppercase tracking-wider text-xs">Prefix Sum Cache</h3>
+                    <div id="prefix-grid" class="flex flex-col border-t border-l border-gray-200">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explanation Panel -->
+            <div id="explanation-panel" class="flex-1 bg-slate-50 rounded-lg p-6 border border-slate-200 flex flex-col">
+                <!-- Populated by JS -->
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- STATE ---
+        let state = {
+            grid: [
+                [1, 2, 4],
+                [1, 6, 6],
+                [5, 6, 7]
+            ],
+            steps: [],
+            stepIndex: 0,
+            isPlaying: false,
+            prefixGrid: [],
+            forceValid: false
+        };
+
+        let timerId = null;
+
+        // --- CORE ALGORITHMS ---
+        const calcPrefix = (g) => {
+            const m = g.length;
+            const n = g[0].length;
+            const ls = Array(m).fill(0).map(() => Array(n).fill(0));
+            ls[0][0] = g[0][0];
+            for (let i = 1; i < m; i++) ls[i][0] = g[i][0] + ls[i - 1][0];
+            for (let i = 1; i < n; i++) ls[0][i] = g[0][i] + ls[0][i - 1];
+            for (let i = 1; i < m; i++) {
+                for (let j = 1; j < n; j++) {
+                    ls[i][j] = ls[i - 1][j] + ls[i][j - 1] - ls[i - 1][j - 1] + g[i][j];
+                }
+            }
+            return ls;
+        };
+
+        const getValidCells = (rStart, rEnd, cStart, cEnd, currentGrid) => {
+            const cells = [];
+            const numRows = rEnd - rStart + 1;
+            const numCols = cEnd - cStart + 1;
+
+            if (numRows === 1 && numCols === 1) {
+                cells.push({ r: rStart, c: cStart, val: currentGrid[rStart][cStart] });
+            } else if (numRows === 1) {
+                cells.push({ r: rStart, c: cStart, val: currentGrid[rStart][cStart] });
+                if (cStart !== cEnd) cells.push({ r: rStart, c: cEnd, val: currentGrid[rStart][cEnd] });
+            } else if (numCols === 1) {
+                cells.push({ r: rStart, c: cStart, val: currentGrid[rStart][cStart] });
+                if (rStart !== rEnd) cells.push({ r: rEnd, c: cStart, val: currentGrid[rEnd][cStart] });
+            } else {
+                for (let r = rStart; r <= rEnd; r++) {
+                    for (let c = cStart; c <= cEnd; c++) {
+                        cells.push({ r, c, val: currentGrid[r][c] });
+                    }
+                }
+            }
+            return cells;
+        };
+
+        const generateSteps = (currentGrid) => {
+            const rows = currentGrid.length;
+            const cols = currentGrid[0].length;
+            const ls = calcPrefix(currentGrid);
+            state.prefixGrid = ls;
+
+            const generatedSteps = [];
+            generatedSteps.push({
+                type: 'INIT',
+                desc: 'Algorithm Started. 2D Prefix Sum calculated.',
+            });
+
+            const totalSum = ls[rows - 1][cols - 1];
+
+            // HORIZONTAL CUTS
+            for (let i = 0; i < rows - 1; i++) {
+                const sumA = ls[i][cols - 1];
+                const sumB = totalSum - sumA;
+                const diff = Math.abs(sumA - sumB);
+
+                generatedSteps.push({
+                    type: 'HORIZ_START', row: i, sumA, sumB, diff, isHoriz: true,
+                    desc: `Horizontal Cut after row ${i}. Section A (Top) sum = ${sumA}. Section B (Bottom) sum = ${sumB}.`
+                });
+
+                if (diff === 0) {
+                    generatedSteps.push({ type: 'MATCH', row: i, isHoriz: true, desc: `Sums are exactly equal! Valid partition found.` });
+                    return generatedSteps;
+                }
+
+                const targetIsA = sumA > sumB;
+                const targetName = targetIsA ? 'Section A (Top)' : 'Section B (Bottom)';
+                
+                let validCells = targetIsA 
+                    ? getValidCells(0, i, 0, cols - 1, currentGrid) 
+                    : getValidCells(i + 1, rows - 1, 0, cols - 1, currentGrid);
+
+                generatedSteps.push({
+                    type: 'GATHER_CELLS', row: i, isHoriz: true, sumA, sumB, diff, targetIsA, validCells,
+                    desc: `${targetName} is heavier by exactly ${diff}. We must find a removable cell with value ${diff} in ${targetName} to balance the grid.`
+                });
+
+                for (const cell of validCells) {
+                    const match = (cell.val === diff);
+                    generatedSteps.push({
+                        type: 'CHECK_CELL', row: i, isHoriz: true, sumA, sumB, diff, targetIsA, validCells, checkingCell: cell,
+                        desc: `Checking if cell at [${cell.r},${cell.c}] equals the difference... ${cell.val} == ${diff} ? ${match ? 'YES!' : 'No.'}`
+                    });
+                    if (match) {
+                        generatedSteps.push({ type: 'MATCH', row: i, isHoriz: true, checkingCell: cell, desc: `Valid partition found by discarding cell at [${cell.r}, ${cell.c}]!` });
+                        return generatedSteps;
+                    }
+                }
+            }
+
+            // VERTICAL CUTS
+            for (let j = 0; j < cols - 1; j++) {
+                const sumA = ls[rows - 1][j];
+                const sumB = totalSum - sumA;
+                const diff = Math.abs(sumA - sumB);
+
+                generatedSteps.push({
+                    type: 'VERT_START', col: j, sumA, sumB, diff, isHoriz: false,
+                    desc: `Vertical Cut after col ${j}. Section A (Left) sum = ${sumA}. Section B (Right) sum = ${sumB}.`
+                });
+
+                if (diff === 0) {
+                    generatedSteps.push({ type: 'MATCH', col: j, isHoriz: false, desc: `Sums are exactly equal! Valid partition found.` });
+                    return generatedSteps;
+                }
+
+                const targetIsA = sumA > sumB;
+                const targetName = targetIsA ? 'Section A (Left)' : 'Section B (Right)';
+                
+                let validCells = targetIsA 
+                    ? getValidCells(0, rows - 1, 0, j, currentGrid) 
+                    : getValidCells(0, rows - 1, j + 1, cols - 1, currentGrid);
+
+                generatedSteps.push({
+                    type: 'GATHER_CELLS', col: j, isHoriz: false, sumA, sumB, diff, targetIsA, validCells,
+                    desc: `${targetName} is heavier by exactly ${diff}. We must find a removable cell with value ${diff} in ${targetName} to balance the grid.`
+                });
+
+                for (const cell of validCells) {
+                    const match = (cell.val === diff);
+                    generatedSteps.push({
+                        type: 'CHECK_CELL', col: j, isHoriz: false, sumA, sumB, diff, targetIsA, validCells, checkingCell: cell,
+                        desc: `Checking if cell at [${cell.r},${cell.c}] equals the difference... ${cell.val} == ${diff} ? ${match ? 'YES!' : 'No.'}`
+                    });
+                    if (match) {
+                        generatedSteps.push({ type: 'MATCH', col: j, isHoriz: false, checkingCell: cell, desc: `Valid partition found by discarding cell at [${cell.r}, ${cell.c}]!` });
+                        return generatedSteps;
+                    }
+                }
+            }
+
+            generatedSteps.push({ type: 'END', desc: 'No valid partition found after checking all cuts. Returning false.' });
+            return generatedSteps;
+        };
+
+        // --- ACTIONS & MUTATIONS ---
+        const distributeSum = (totalSum, count) => {
+            const arr = Array(count).fill(1);
+            let remaining = totalSum - count;
+            const weights = Array(count).fill(0).map(() => Math.random());
+            const weightSum = weights.reduce((a, b) => a + b, 0);
+            
+            for (let i = 0; i < count - 1; i++) {
+                const portion = Math.floor((weights[i] / weightSum) * remaining);
+                arr[i] += portion;
+                remaining -= portion;
+            }
+            arr[count - 1] += remaining;
+            
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
+
+        const randomArray = (count, max = 15) => {
+            return Array(count).fill(0).map(() => Math.floor(Math.random() * max) + 1);
+        };
+
+        const updateData = () => {
+            state.steps = generateSteps(state.grid);
+            state.stepIndex = 0;
+            if (state.isPlaying) togglePlay(); // stop play when grid changes
+            render();
+        };
+
+        const handleCellInput = (r, c, val) => {
+            const num = Math.max(1, parseInt(val) || 1);
+            state.grid[r][c] = num;
+            updateData();
+        };
+
+        const addRow = () => {
+            const cols = state.grid[0].length;
+            let newRow;
+            if (state.forceValid) {
+                const oldSum = state.grid.flat().reduce((a, b) => a + b, 0);
+                newRow = distributeSum(oldSum, cols);
+            } else {
+                newRow = randomArray(cols);
+            }
+            state.grid.push(newRow);
+            updateData();
+        };
+
+        const addCol = () => {
+            const rows = state.grid.length;
+            let newColVals;
+            if (state.forceValid) {
+                const oldSum = state.grid.flat().reduce((a, b) => a + b, 0);
+                newColVals = distributeSum(oldSum, rows);
+            } else {
+                newColVals = randomArray(rows);
+            }
+            state.grid = state.grid.map((row, i) => [...row, newColVals[i]]);
+            updateData();
+        };
+
+        const removeRow = () => {
+            if (state.grid.length > 2) {
+                state.grid.pop();
+                updateData();
+            }
+        };
+
+        const removeCol = () => {
+            if (state.grid[0].length > 2) {
+                state.grid = state.grid.map(row => row.slice(0, -1));
+                updateData();
+            }
+        };
+
+        const togglePlay = () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                if (state.stepIndex >= state.steps.length - 1) state.stepIndex = 0; // restart if at end
+                timerId = setInterval(() => {
+                    if (state.stepIndex < state.steps.length - 1) {
+                        state.stepIndex++;
+                        render();
+                    } else {
+                        togglePlay(); // stop at end
+                    }
+                }, 1000);
+            } else {
+                clearInterval(timerId);
+            }
+            render();
+        };
+
+        // --- RENDERING ---
+        const getCellClasses = (r, c) => {
+            const currentStep = state.steps[state.stepIndex] || {};
+            let baseBg = "bg-white text-slate-800";
+            let border = "border border-gray-300";
+            let extra = "";
+
+            if (currentStep.type) {
+                const isMatchStep = currentStep.type === 'MATCH';
+                
+                if (currentStep.isHoriz !== undefined) {
+                    if (currentStep.isHoriz) {
+                        if (r <= currentStep.row) baseBg = isMatchStep ? "bg-green-100" : "bg-blue-100";
+                        else baseBg = isMatchStep ? "bg-green-100" : "bg-orange-100";
+                        if (r === currentStep.row) border += " border-b-4 border-b-slate-800";
+                    } else {
+                        if (c <= currentStep.col) baseBg = isMatchStep ? "bg-green-100" : "bg-blue-100";
+                        else baseBg = isMatchStep ? "bg-green-100" : "bg-orange-100";
+                        if (c === currentStep.col) border += " border-r-4 border-r-slate-800";
+                    }
+                }
+
+                if (['GATHER_CELLS', 'CHECK_CELL'].includes(currentStep.type)) {
+                    const isValid = currentStep.validCells?.some(item => item && item.r === r && item.c === c);
+                    if (isValid) baseBg = "bg-yellow-200 border-yellow-400";
+                }
+
+                if (currentStep.checkingCell && currentStep.checkingCell.r === r && currentStep.checkingCell.c === c) {
+                    if (isMatchStep) {
+                        baseBg = "bg-red-500 text-white font-bold line-through";
+                        extra = "scale-110 shadow-lg z-10 relative rotate-12";
+                    } else {
+                        baseBg = "bg-purple-600 text-white font-bold";
+                        extra = "scale-110 shadow-lg z-10 relative";
+                    }
+                }
+            }
+
+            return `w-14 h-14 flex items-center justify-center text-xl grid-cell ${baseBg} ${border} ${extra}`;
+        };
+
+        const render = () => {
+            // Track focus to not lose cursor position while typing
+            const activeEl = document.activeElement;
+            const activeId = activeEl ? activeEl.id : null;
+            let cursorStart = null;
+            if (activeEl && activeEl.tagName === 'INPUT') cursorStart = activeEl.selectionStart;
+
+            const currentStep = state.steps[state.stepIndex] || {};
+
+            // Render Controls
+            document.getElementById('step-counter').innerText = `Step ${state.stepIndex + 1} / ${state.steps.length}`;
+            document.getElementById('btn-prev').disabled = state.stepIndex === 0;
+            document.getElementById('btn-next').disabled = state.stepIndex === state.steps.length - 1;
+            document.getElementById('btn-rem-row').disabled = state.grid.length <= 2;
+            document.getElementById('btn-rem-col').disabled = state.grid[0].length <= 2;
+            
+            document.getElementById('icon-play').classList.toggle('hidden', state.isPlaying);
+            document.getElementById('icon-pause').classList.toggle('hidden', !state.isPlaying);
+            document.getElementById('check-force-valid').checked = state.forceValid;
+
+            // Render Live Grid
+            let gridHtml = '';
+            state.grid.forEach((row, r) => {
+                gridHtml += `<div class="flex">`;
+                row.forEach((cell, c) => {
+                    const classes = getCellClasses(r, c) + ' text-center outline-none focus:ring-2 focus:ring-blue-500 focus:z-20 relative m-0 p-0 font-medium';
+                    gridHtml += `<input id="cell-${r}-${c}" type="text" value="${cell}" class="${classes}" oninput="handleCellInput(${r}, ${c}, this.value)" />`;
+                });
+                gridHtml += `</div>`;
+            });
+            document.getElementById('live-grid').innerHTML = gridHtml;
+
+            // Render Prefix Grid
+            let prefixHtml = '';
+            state.prefixGrid.forEach((row, r) => {
+                prefixHtml += `<div class="flex">`;
+                row.forEach((cell, c) => {
+                    prefixHtml += `<div class="w-10 h-10 border border-gray-200 flex items-center justify-center text-xs bg-white text-slate-500">${cell}</div>`;
+                });
+                prefixHtml += `</div>`;
+            });
+            document.getElementById('prefix-grid').innerHTML = prefixHtml;
+
+            // Render Explanation Panel
+            let expHtml = `
+                <h3 class="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2">
+                    <span class="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">${state.stepIndex + 1}</span>
+                    Operation Breakdown
+                </h3>
+                <p class="text-slate-700 text-lg bg-white p-4 rounded-lg border border-slate-200 shadow-sm min-h-[5rem]">
+                    ${currentStep.desc || ''}
+                </p>
+            `;
+
+            if (currentStep.type !== 'INIT' && currentStep.type !== 'END') {
+                const targetIsA = currentStep.targetIsA;
+                
+                expHtml += `
+                <div class="mt-6 space-y-4">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="p-3 rounded border flex flex-col items-center justify-center ${targetIsA ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}">
+                            <span class="text-xs font-bold uppercase text-blue-800 text-center">Sum A<br/>(Blue)</span>
+                            <span class="text-2xl font-mono mt-1">${currentStep.sumA !== undefined ? currentStep.sumA : '-'}</span>
+                        </div>
+                        <div class="p-3 rounded border flex flex-col items-center justify-center ${!targetIsA && currentStep.diff > 0 ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}">
+                            <span class="text-xs font-bold uppercase text-orange-800 text-center">Sum B<br/>(Orange)</span>
+                            <span class="text-2xl font-mono mt-1">${currentStep.sumB !== undefined ? currentStep.sumB : '-'}</span>
+                        </div>
+                        <div class="bg-white p-3 rounded border border-slate-300 flex flex-col items-center justify-center shadow-sm">
+                            <span class="text-[10px] font-bold uppercase text-slate-500 text-center">Needed<br/>Difference</span>
+                            <span class="text-2xl font-mono text-emerald-600 font-bold mt-1">${currentStep.diff !== undefined ? currentStep.diff : '-'}</span>
+                        </div>
+                    </div>
+                `;
+
+                if (['GATHER_CELLS', 'CHECK_CELL', 'MATCH'].includes(currentStep.type) && currentStep.type !== 'MATCH') {
+                    expHtml += `
+                    <div class="mt-4 bg-white p-4 rounded border border-slate-200">
+                        <span class="text-xs font-bold uppercase block mb-2 text-slate-600">
+                            Valid Removable Cells (Must keep section connected)
+                        </span>
+                        <div class="flex flex-wrap gap-2">
+                            ${currentStep.validCells?.map(item => {
+                                const isChecking = currentStep.checkingCell?.r === item.r && currentStep.checkingCell?.c === item.c;
+                                const classes = isChecking ? 'bg-purple-600 text-white border-purple-700 font-bold' : 'bg-yellow-100 border-yellow-300';
+                                return `
+                                <div class="px-2 py-1 border rounded text-sm flex items-center gap-1 ${classes}">
+                                    <span>[r:${item.r}, c:${item.c}]</span>
+                                    <span class="opacity-50">→</span>
+                                    <span>val: ${item.val}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    `;
+                }
+                expHtml += `</div>`;
+            }
+            document.getElementById('explanation-panel').innerHTML = expHtml;
+
+            // Restore focus
+            if (activeId) {
+                const el = document.getElementById(activeId);
+                if (el) {
+                    el.focus();
+                    if (cursorStart !== null) el.setSelectionRange(cursorStart, cursorStart);
+                }
+            }
+        };
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            state.stepIndex = 0;
+            if (state.isPlaying) togglePlay();
+            else render();
+        });
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            if (state.stepIndex > 0) {
+                state.stepIndex--;
+                if (state.isPlaying) togglePlay();
+                else render();
+            }
+        });
+        document.getElementById('btn-next').addEventListener('click', () => {
+            if (state.stepIndex < state.steps.length - 1) {
+                state.stepIndex++;
+                if (state.isPlaying) togglePlay();
+                else render();
+            }
+        });
+        document.getElementById('btn-play').addEventListener('click', togglePlay);
+        
+        document.getElementById('btn-add-row').addEventListener('click', addRow);
+        document.getElementById('btn-rem-row').addEventListener('click', removeRow);
+        document.getElementById('btn-add-col').addEventListener('click', addCol);
+        document.getElementById('btn-rem-col').addEventListener('click', removeCol);
+        
+        document.getElementById('check-force-valid').addEventListener('change', (e) => {
+            state.forceValid = e.target.checked;
+            render();
+        });
+
+        // Initialize App
+        state.steps = generateSteps(state.grid);
+        render();
+
+    </script>
+</body>
+</html>
