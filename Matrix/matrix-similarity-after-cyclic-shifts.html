@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithmic Dissection Lab</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        .matrix-cell {
+            transition: all 0.3s ease;
+        }
+        /* Custom scrollbar for logs */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-200 font-sans flex flex-col items-center p-6">
+    <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column: Controls & Visualizations -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Controls Panel -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h2 class="text-lg font-semibold text-emerald-400 mb-4 flex items-center">
+                    <span class="bg-slate-900 p-2 rounded-lg mr-3 shadow-inner"><i class="fa-solid fa-sliders"></i> Experiment Parameters</span>
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Matrix Input (JSON 2D Array)</label>
+                        <input type="text" id="matrixInput" value="[[1,2,1,2],[5,5,5,5],[6,3,6,3]]" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-slate-200 font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                        <p id="errorText" class="text-red-400 text-xs mt-1 hidden">Syntax error in matrix.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Shift Value (k)</label>
+                        <input type="number" id="kInput" min="0" value="2" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-slate-200 font-mono text-sm focus:border-emerald-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button onclick="loadPreset('[[1,2,1,2],[5,5,5,5],[6,3,6,3]]', 2)" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">Preset: Similar (k=2)</button>
+                    <button onclick="loadPreset('[[1,2,3],[4,5,6],[7,8,9]]', 1)" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">Preset: Dissimilar (k=1)</button>
+                    <button onclick="loadPreset('[[2,2,2,2,2],[1,1,1,1,1]]', 3)" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">Preset: Uniform (k=3)</button>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg min-h-[500px] flex flex-col">
+                
+                <!-- Playback Controls -->
+                <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                    <div class="flex items-center gap-3">
+                        <button id="btnPrev" class="p-2 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 transition w-10 h-10 flex items-center justify-center">
+                            <i class="fa-solid fa-backward-step"></i>
+                        </button>
+                        <button id="btnPlayPause" class="p-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition w-12 h-12 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-play ml-1" id="playIcon"></i>
+                        </button>
+                        <button id="btnNext" class="p-2 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 transition w-10 h-10 flex items-center justify-center">
+                            <i class="fa-solid fa-forward-step"></i>
+                        </button>
+                        <button id="btnReset" class="p-2 rounded-full bg-slate-700 hover:bg-slate-600 ml-2 transition w-10 h-10 flex items-center justify-center">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+                    <div class="text-slate-400 font-mono text-sm bg-slate-900 px-4 py-2 rounded-lg shadow-inner">
+                        Step <span id="stepCounter">0 / 0</span>
+                    </div>
+                </div>
+
+                <!-- Matrices Container -->
+                <div class="flex-1 flex flex-col xl:flex-row gap-6 overflow-hidden">
+                    
+                    <!-- Original Matrix Reference -->
+                    <div class="flex-shrink-0 flex flex-col items-center border-r-0 xl:border-r border-slate-700 xl:pr-6 pb-6 xl:pb-0">
+                        <h3 class="text-sm font-semibold text-slate-400 mb-3 tracking-wider uppercase">Memory (Original Matrix)</h3>
+                        <div id="originalMatrixGrid" class="inline-block relative scale-90 origin-top">
+                            <!-- Populated by JS -->
+                        </div>
+                        <p class="text-xs text-slate-500 mt-4 text-center max-w-[200px]">The algorithm does not mutate the matrix. It only calculates indices mathematically.</p>
+                    </div>
+
+                    <!-- Active Visualization -->
+                    <div class="flex-1 flex flex-col items-center overflow-auto p-2">
+                        <h3 class="text-sm font-semibold text-emerald-400 mb-3 tracking-wider uppercase">Active Pointer Analysis</h3>
+                        <div id="activeMatrixGrid" class="inline-block relative">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contextual Visualizer Status -->
+                <div id="statusBox" class="mt-6 p-4 rounded-lg flex items-center justify-center gap-4 text-lg font-mono hidden">
+                    <div id="statusVal1" class="bg-blue-900/50 px-3 py-1 rounded border border-blue-500/30"></div>
+                    <div id="statusOperator">==</div>
+                    <div id="statusVal2" class="bg-amber-900/50 px-3 py-1 rounded border border-amber-500/30"></div>
+                    <i id="statusIcon" class="fa-solid text-xl ml-2"></i>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Log -->
+        <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden flex flex-col h-[700px] lg:h-auto">
+            <!-- Decorative Top -->
+            <div class="bg-slate-800 py-3 px-5 border-b border-slate-700 flex items-center justify-between">
+                <h2 class="font-serif italic text-slate-300 text-lg"><i class="fa-solid fa-book-open text-slate-500 mr-2"></i>Steps</h2>
+                <div class="flex gap-1">
+                    <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-amber-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-emerald-500/50"></div>
+                </div>
+            </div>
+            
+            <div id="logsContainer" class="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth font-mono text-sm" style="background-image: radial-gradient(circle, #1e293b 1px, transparent 1px); background-size: 20px 20px;">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Educational Footer Notes -->
+    <div class="w-full max-w-7xl mt-8 p-4 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-400 text-sm">
+        <p><strong class="text-emerald-400">The Professor's Summary:</strong> The genius of this algorithm lies in the <code class="bg-slate-800 px-1 py-0.5 rounded text-slate-300">GiveMeIndex</code> function. Notice how the Original Matrix (left) remains untouched. Instead of mutating the array in memory—a computationally expensive operation—it merely calculates the theoretical source indices utilizing <code class="bg-slate-800 px-1 py-0.5 rounded text-slate-300">Modulo % n</code> constraints to cross-reference elements. O(M*N) time complexity with O(1) spatial complexity.</p>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        let state = {
+            matrix: [],
+            k: 0,
+            trace: [],
+            stepIndex: 0,
+            isPlaying: false,
+            timer: null
+        };
+
+        // --- Core Logic Simulator ---
+        function generateExecutionTrace(mat, initialK) {
+            const trace = [];
+            const m = mat.length;
+            if (m === 0) return trace;
+            const n = mat[0].length;
+            
+            const k = initialK % n;
+            trace.push({
+                type: 'INFO',
+                text: `First principle! We reduce k. k = ${initialK} % ${n} = ${k}. A shift by ${initialK} is mathematically indistinguishable from a shift by ${k} in this modulus space.`,
+            });
+
+            for (let i = 0; i < m; i++) {
+                const shift = (i % 2 === 0) ? -k : k;
+                const direction = (i % 2 === 0) ? 'Right Shift (Evaluated by looking Left, -k)' : 'Left Shift (Evaluated by looking Right, +k)';
+                
+                trace.push({
+                    type: 'ROW_START',
+                    row: i,
+                    text: `Examining Row ${i}. Parity is ${(i % 2 === 0) ? 'Even' : 'Odd'}. Shift coefficient is ${shift}. Conceptual movement: ${direction}.`,
+                });
+
+                for (let j = 0; j < n; j++) {
+                    let targetJ;
+                    let x = shift;
+                    let logCalc = '';
+
+                    if (x < 0) {
+                        targetJ = j + x;
+                        logCalc = `x < 0, target = ${j} + (${x}) = ${targetJ}. `;
+                        if (targetJ < 0) {
+                            targetJ = n + targetJ;
+                            logCalc += `Negative overflow! Wrapping around the torus: ${n} + (${j+x}) = ${targetJ}.`;
+                        } else {
+                            logCalc += `No wrap needed.`;
+                        }
+                    } else {
+                        targetJ = (j + x) % n;
+                        logCalc = `x >= 0, target = (${j} + ${x}) % ${n} = ${targetJ}. Wrap handled by modulo.`;
+                    }
+
+                    const val1 = mat[i][j];
+                    const val2 = mat[i][targetJ];
+                    const isMatch = val1 === val2;
+
+                    trace.push({
+                        type: 'COMPARE',
+                        row: i,
+                        col: j,
+                        targetCol: targetJ,
+                        val1,
+                        val2,
+                        isMatch,
+                        text: `Comparing mat[${i}][${j}] (${val1}) with mat[${i}][${targetJ}] (${val2}). \n   Calc: ${logCalc}`,
+                    });
+
+                    if (!isMatch) {
+                        trace.push({
+                            type: 'RESULT',
+                            success: false,
+                            text: `Mismatch detected at Row ${i}! ${val1} != ${val2}. Structural periodicity broken. Returning false.`,
+                        });
+                        return trace;
+                    }
+                }
+            }
+
+            trace.push({
+                type: 'RESULT',
+                success: true,
+                text: `Splendid! All checks passed. The cyclical shifts maintain perfect symmetry. Returning true.`,
+            });
+
+            return trace;
+        }
+
+        // --- DOM Elements ---
+        const matrixInput = document.getElementById('matrixInput');
+        const kInput = document.getElementById('kInput');
+        const errorText = document.getElementById('errorText');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const playIcon = document.getElementById('playIcon');
+        const btnNext = document.getElementById('btnNext');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnReset = document.getElementById('btnReset');
+        const stepCounter = document.getElementById('stepCounter');
+        const originalMatrixGrid = document.getElementById('originalMatrixGrid');
+        const activeMatrixGrid = document.getElementById('activeMatrixGrid');
+        const logsContainer = document.getElementById('logsContainer');
+        const statusBox = document.getElementById('statusBox');
+        
+        // --- Initialization & Updates ---
+        function parseInputs() {
+            try {
+                const parsedMat = JSON.parse(matrixInput.value);
+                if (!Array.isArray(parsedMat) || !Array.isArray(parsedMat[0])) {
+                    throw new Error("Invalid format");
+                }
+                state.matrix = parsedMat;
+                state.k = parseInt(kInput.value) || 0;
+                errorText.classList.add('hidden');
+                
+                state.trace = generateExecutionTrace(state.matrix, state.k);
+                state.stepIndex = 0;
+                pause();
+                updateUI();
+            } catch (err) {
+                errorText.classList.remove('hidden');
+            }
+        }
+
+        function updateUI() {
+            if(state.trace.length === 0) return;
+            const currentStep = state.trace[state.stepIndex] || {};
+            
+            stepCounter.innerText = `${state.stepIndex + 1} / ${state.trace.length}`;
+            
+            // Render Original Matrix
+            renderOriginalMatrix(currentStep);
+            
+            // Render Active Matrix
+            renderActiveMatrix(currentStep);
+            
+            // Render Logs
+            renderLogs();
+            
+            // Update Status Box
+            renderStatusBox(currentStep);
+            
+            // Button States
+            btnPrev.disabled = state.stepIndex === 0;
+            btnNext.disabled = state.stepIndex === state.trace.length - 1;
+            
+            if(state.isPlaying) {
+                playIcon.classList.remove('fa-play');
+                playIcon.classList.add('fa-pause');
+                playIcon.classList.remove('ml-1'); // fix icon centering
+            } else {
+                playIcon.classList.remove('fa-pause');
+                playIcon.classList.add('fa-play');
+                playIcon.classList.add('ml-1');
+            }
+        }
+
+        function renderOriginalMatrix(currentStep) {
+            let html = '';
+            state.matrix.forEach((row, i) => {
+                const isCurrentRow = (currentStep.row === i);
+                html += `<div class="flex items-center mb-1 ${isCurrentRow ? 'opacity-100' : 'opacity-40'} transition-opacity">`;
+                row.forEach((cell) => {
+                    html += `
+                        <div class="w-10 h-10 flex items-center justify-center border rounded bg-slate-800 border-slate-700 text-slate-400 mx-0.5 text-sm font-mono">
+                            ${cell}
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            });
+            originalMatrixGrid.innerHTML = html;
+        }
+
+        function renderActiveMatrix(currentStep) {
+            let html = '';
+            state.matrix.forEach((row, i) => {
+                html += `<div class="flex items-center mb-2">`;
+                
+                // Direction Arrow
+                const isActiveRow = currentStep.row === i;
+                const arrowIcon = i % 2 === 0 ? 'fa-arrow-right' : 'fa-arrow-left';
+                html += `<div class="w-8 flex justify-center mr-2 md:mr-4 ${isActiveRow ? 'text-emerald-400 opacity-100' : 'text-slate-600 opacity-30'} transition-opacity">
+                            <i class="fa-solid ${arrowIcon} text-xl"></i>
+                         </div>`;
+                
+                row.forEach((cell, j) => {
+                    let isCurrent = currentStep.type === 'COMPARE' && currentStep.row === i && currentStep.col === j;
+                    let isTarget = currentStep.type === 'COMPARE' && currentStep.row === i && currentStep.targetCol === j;
+                    
+                    let classes = "matrix-cell w-10 h-10 md:w-14 md:h-14 flex items-center justify-center border-2 rounded-lg text-base md:text-lg font-mono relative shadow-sm mx-1 ";
+                    let badges = '';
+
+                    if (isCurrent && isTarget) {
+                        classes += "bg-emerald-900 border-emerald-400 text-white scale-110 z-10 shadow-[0_0_15px_rgba(52,211,153,0.3)]";
+                        badges = `<div class="absolute -top-3 -right-2 md:-right-3 bg-emerald-500 text-[10px] px-1.5 py-0.5 rounded-full font-bold text-slate-900">j==trgt</div>`;
+                    } else if (isCurrent) {
+                        classes += "bg-blue-900 border-blue-400 text-white scale-110 z-10 shadow-[0_0_15px_rgba(96,165,250,0.3)]";
+                        badges = `<div class="absolute -top-3 -right-2 md:-right-3 bg-blue-500 text-[10px] px-1.5 py-0.5 rounded-full font-bold">j</div>`;
+                    } else if (isTarget) {
+                        classes += "bg-amber-900 border-amber-400 text-white scale-110 z-10 shadow-[0_0_15px_rgba(251,191,36,0.3)]";
+                        badges = `<div class="absolute -bottom-3 -right-2 md:-right-3 bg-amber-500 text-[10px] px-1.5 py-0.5 rounded-full font-bold text-slate-900">trgt</div>`;
+                    } else if (isActiveRow) {
+                        classes += "bg-slate-700 border-slate-600 text-slate-300";
+                    } else {
+                        classes += "bg-slate-800 border-slate-700 text-slate-500";
+                    }
+
+                    html += `<div class="${classes}">${cell}${badges}</div>`;
+                });
+                html += `</div>`;
+            });
+            activeMatrixGrid.innerHTML = html;
+        }
+
+        function renderLogs() {
+            let html = '';
+            for (let i = 0; i <= state.stepIndex; i++) {
+                const step = state.trace[i];
+                let borderClass = 'border-slate-500';
+                let bgClass = 'bg-slate-800/50';
+                let textClass = 'text-slate-300';
+                
+                if (step.type === 'INFO') { borderClass = 'border-blue-500'; bgClass = 'bg-slate-800/80'; textClass = 'text-blue-100'; }
+                if (step.type === 'ROW_START') { borderClass = 'border-purple-500'; bgClass = 'bg-purple-900/20'; textClass = 'text-purple-200'; }
+                if (step.type === 'RESULT' && step.success) { borderClass = 'border-emerald-500'; bgClass = 'bg-emerald-900/40'; textClass = 'text-emerald-200'; }
+                if (step.type === 'RESULT' && !step.success) { borderClass = 'border-red-500'; bgClass = 'bg-red-900/40'; textClass = 'text-red-200'; }
+
+                html += `
+                    <div class="p-3 rounded-lg border-l-4 shadow-sm animate-fade-in ${borderClass} ${bgClass} ${textClass}">
+                        <div class="opacity-50 text-[10px] mb-1 uppercase tracking-wider font-bold">${step.type}</div>
+                        <div class="whitespace-pre-wrap leading-relaxed">${step.text}</div>
+                    </div>
+                `;
+            }
+            logsContainer.innerHTML = html;
+            // Scroll to bottom
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function renderStatusBox(currentStep) {
+            if (currentStep.type === 'COMPARE') {
+                statusBox.classList.remove('hidden', 'bg-emerald-900/30', 'text-emerald-300', 'bg-red-900/30', 'text-red-300');
+                
+                document.getElementById('statusVal1').innerText = `mat[${currentStep.row}][${currentStep.col}] = ${currentStep.val1}`;
+                document.getElementById('statusVal2').innerText = `mat[${currentStep.row}][${currentStep.targetCol}] = ${currentStep.val2}`;
+                
+                if (currentStep.isMatch) {
+                    statusBox.classList.add('bg-emerald-900/30', 'text-emerald-300');
+                    document.getElementById('statusOperator').innerText = '==';
+                    document.getElementById('statusIcon').className = 'fa-solid fa-circle-check text-emerald-400 ml-2 text-xl';
+                } else {
+                    statusBox.classList.add('bg-red-900/30', 'text-red-300');
+                    document.getElementById('statusOperator').innerText = '!=';
+                    document.getElementById('statusIcon').className = 'fa-solid fa-circle-xmark text-red-400 ml-2 text-xl';
+                }
+            } else {
+                statusBox.classList.add('hidden');
+            }
+        }
+
+        // --- Event Listeners & Playback ---
+        function play() {
+            state.isPlaying = true;
+            updateUI();
+            loop();
+        }
+
+        function pause() {
+            state.isPlaying = false;
+            clearTimeout(state.timer);
+            updateUI();
+        }
+
+        function loop() {
+            if (state.isPlaying && state.stepIndex < state.trace.length - 1) {
+                state.timer = setTimeout(() => {
+                    state.stepIndex++;
+                    updateUI();
+                    loop();
+                }, 1500); // Animation speed
+            } else {
+                pause();
+            }
+        }
+
+        btnPlayPause.addEventListener('click', () => {
+            if (state.isPlaying) pause();
+            else if (state.stepIndex < state.trace.length - 1) play();
+        });
+
+        btnNext.addEventListener('click', () => {
+            pause();
+            if (state.stepIndex < state.trace.length - 1) {
+                state.stepIndex++;
+                updateUI();
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            pause();
+            if (state.stepIndex > 0) {
+                state.stepIndex--;
+                updateUI();
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            pause();
+            state.stepIndex = 0;
+            updateUI();
+        });
+
+        matrixInput.addEventListener('change', parseInputs);
+        kInput.addEventListener('change', parseInputs);
+
+        // Global Preset function
+        window.loadPreset = function(matStr, kVal) {
+            matrixInput.value = matStr;
+            kInput.value = kVal;
+            parseInputs();
+        }
+
+        // Init on load
+        parseInputs();
+
+    </script>
+</body>
+</html>
